@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANSI Test</title>
+    <style>
+        #output {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.1;
+            white-space: pre;
+            background-color: #000;
+            display: inline-block; /* Shrink wrapper to fit the art */
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <span id="output_raw"></span>
+    <span id="output"></span>
+    <script>
+        /**
+         * Returns elements recreating an ANSI string.
+         * Handles 24-bit RGB (38;2;r;g;b and 48;2;r;g;b) and standard 256-color codes.
+         */
+        function renderAnsi(ansiString) {
+            // Performance optimization: Build HTML in an array rather than string concatenation
+            const htmlParts = [];
+            let currentFg = '';
+            let currentBg = '';
+            let buffer = '';
+            
+            // Helper to escape HTML entities to prevent XSS/breaking layout
+            const escapeHtml = (text) => {
+                return text.replace(/&/g, '&amp;')
+                           .replace(/</g, '&lt;')
+                           .replace(/>/g, '&gt;');
+            };
+
+            // Helper to convert 256-color ANSI codes to RGB strings
+            const get256Color = (n) => {
+                if (n < 16) {
+                    // Standard colors
+                    const colors = [
+                        '#000000','#aa0000','#00aa00','#aa5500','#0000aa','#aa00aa','#00aaaa','#aaaaaa',
+                        '#555555','#ff5555','#55ff55','#ffff55','#5555ff','#ff55ff','#55ffff','#ffffff'
+                    ];
+                    return colors[n];
+                } else if (n < 232) {
+                    // 6x6x6 Color Cube
+                    n -= 16;
+                    const r = Math.floor(n / 36) * 51;
+                    const g = Math.floor((n % 36) / 6) * 51;
+                    const b = (n % 6) * 51;
+                    return `rgb(${r},${g},${b})`;
+                } else {
+                    // Grayscale ramp
+                    const gray = (n - 232) * 10 + 8;
+                    return `rgb(${gray},${gray},${gray})`;
+                }
+            };
+
+            // Regex to match ANSI escape sequences. 
+            // Note: We use (?:\x1b\[|\[) because the user's example is missing the actual 
+            // ESC (\x1b) character, which is common when copy-pasting from terminals.
+            const regex = /(?:\x1b\[|\[)([0-9;]*)m/g;
+            let match;
+            let lastIndex = 0;
+
+            while ((match = regex.exec(ansiString)) !== null) {
+                // Get the plain text before this escape sequence
+                buffer += ansiString.substring(lastIndex, match.index);
+                lastIndex = regex.lastIndex;
+
+                // Parse the numbers inside the escape sequence (e.g., "38;2;255;0;0")
+                const params = match[1].split(';').map(Number);
+                let newFg = currentFg;
+                let newBg = currentBg;
+
+                for (let i = 0; i < params.length; i++) {
+                    const p = params[i];
+                    if (p === 0) {
+                        // Reset
+                        newFg = '';
+                        newBg = '';
+                    } else if (p === 38) {
+                        // Foreground
+                        if (params[i+1] === 2) {
+                            newFg = `rgb(${params[i+2]},${params[i+3]},${params[i+4]})`;
+                            i += 4; // Skip the next 4 numbers
+                        } else if (params[i+1] === 5) {
+                            newFg = get256Color(params[i+2]);
+                            i += 2;
+                        }
+                    } else if (p === 48) {
+                        // Background
+                        if (params[i+1] === 2) {
+                            newBg = `rgb(${params[i+2]},${params[i+3]},${params[i+4]})`;
+                            i += 4; // Skip the next 4 numbers
+                        } else if (params[i+1] === 5) {
+                            newBg = get256Color(params[i+2]);
+                            i += 2;
+                        }
+                    }
+                    // Can be expanded to handle bold (1), italic (3), etc.
+                }
+
+                // If the colors changed, flush the buffer into a styled span
+                if (newFg !== currentFg || newBg !== currentBg) {
+                    if (buffer.length > 0) {
+                        const style = `color:${currentFg || 'inherit'};background-color:${currentBg || 'transparent'};`;
+                        htmlParts.push(`<span style="${style}">${escapeHtml(buffer)}</span>`);
+                        buffer = '';
+                    }
+                    currentFg = newFg;
+                    currentBg = newBg;
+                }
+            }
+
+            // Flush any remaining text after the last escape sequence
+            buffer += ansiString.substring(lastIndex);
+            if (buffer.length > 0) {
+                const style = `color:${currentFg || 'inherit'};background-color:${currentBg || 'transparent'};`;
+                htmlParts.push(`<span style="${style}">${escapeHtml(buffer)}</span>`);
+            }
+
+            return htmlParts.join('');
+        }
+        
+        output = document.querySelector('#output');
+        output_raw = document.querySelector('#output_raw');
+
+        fetch('./Anime Girl Head/anime_girl_head.ans')
+            .then(r=>r.text())
+            .then(text => {
+                output_raw.innerText = text;
+                output.innerHTML = renderAnsi(text);
+            })
+    </script>
+</body>
+</html>
