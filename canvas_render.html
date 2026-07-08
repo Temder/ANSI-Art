@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANSI Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"Fira Code"', 'monospace'],
+                        ui: ['"Space Grotesk"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #08090a;
+            --surface: #111214;
+            --surface2: #1a1b1e;
+            --border: #2a2c30;
+            --text: #c8cad0;
+            --muted: #5a5d65;
+            --accent: #00e87b;
+            --accent-dim: #00a857;
+            --accent-glow: rgba(0, 232, 123, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Subtle background atmosphere */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 15% 50%, rgba(0,232,123,0.025) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 60% at 85% 30%, rgba(0,168,87,0.018) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Scanline overlay */
+        .scanlines::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 3px,
+                rgba(0, 0, 0, 0.12) 3px,
+                rgba(0, 0, 0, 0.12) 4px
+            );
+            pointer-events: none;
+            z-index: 10;
+            border-radius: inherit;
+        }
+
+        /* CRT vignette + glow */
+        .crt-frame {
+            position: relative;
+            border-radius: 6px;
+            box-shadow:
+                0 0 0 1px var(--border),
+                0 0 40px rgba(0, 232, 123, 0.04),
+                0 0 80px rgba(0, 232, 123, 0.02),
+                inset 0 0 60px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .crt-frame::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        /* Scrollbar */
+        #canvas-scroll {
+            overflow: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-dim) var(--surface);
+        }
+        #canvas-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        #canvas-scroll::-webkit-scrollbar-track { background: var(--surface); border-radius: 3px; }
+        #canvas-scroll::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+
+        /* Buttons */
+        .btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .btn:active { transform: scale(0.97); }
+        .btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); color: #000; }
+
+        /* Select */
+        select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 5px 8px;
+            border-radius: 5px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        select:hover, select:focus { border-color: var(--accent); }
+        select option { background: var(--surface); color: var(--text); }
+
+        /* Range slider */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: box-shadow 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 6px var(--accent);
+        }
+
+        /* Info badge */
+        .badge {
+            background: var(--accent-glow);
+            border: 1px solid rgba(0,232,123,0.15);
+            color: var(--accent);
+            padding: 1px 7px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: 'Fira Code', monospace;
+            letter-spacing: 0.02em;
+        }
+
+        /* Drop overlay */
+        #drop-overlay {
+            background: rgba(8,9,10,0.88);
+            backdrop-filter: blur(6px);
+        }
+        .drop-box {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            transition: all 0.25s ease;
+        }
+        .drop-box.active { border-color: var(--accent); background: var(--accent-glow); }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: 'Fira Code', monospace;
+            z-index: 999;
+            transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), opacity 0.25s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* Separator */
+        .sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+        /* Fade in */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 0.5s ease both; }
+
+        /* Cursor blink for status */
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+        .cursor-blink { animation: blink 1s step-end infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scanlines::after { display: none; }
+            .crt-frame::before { display: none; }
+            * { transition: none !important; animation: none !important; }
+        }
+
+        @media (max-width: 768px) {
+            .hide-mobile { display: none !important; }
+            header { flex-wrap: wrap; gap: 6px; }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="relative z-20 flex items-center justify-between px-3 py-2 border-b fade-in" style="border-color:var(--border);background:var(--surface);">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <i class="fa-solid fa-terminal text-xs" style="color:var(--accent);"></i>
+            <span class="font-ui font-bold text-sm tracking-wide truncate" style="color:var(--text);">ANSI Viewer</span>
+            <div id="file-info" class="hidden items-center gap-1.5 ml-1 min-w-0 flex-wrap">
+                <span class="badge truncate max-w-[140px]" id="file-name">-</span>
+                <span class="badge" id="file-size">-</span>
+                <span class="badge" id="file-dims">-</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            <select id="enc-sel" title="Character encoding" class="hide-mobile">
+                <option value="auto">Auto</option>
+                <option value="utf8">UTF-8</option>
+                <option value="cp437">CP437</option>
+            </select>
+            <div class="sep hide-mobile"></div>
+            <button class="btn" onclick="zoomOut()" title="Zoom out (-)"><i class="fa-solid fa-minus" style="font-size:9px;"></i></button>
+            <input type="range" id="zoom-range" min="1" max="10" step="0.5" value="4" style="width:80px;" oninput="setZoom(this.value)" title="Zoom level">
+            <button class="btn" onclick="zoomIn()" title="Zoom in (+)"><i class="fa-solid fa-plus" style="font-size:9px;"></i></button>
+            <button class="btn" onclick="fitView()" title="Fit to view (0)"><i class="fa-solid fa-expand" style="font-size:10px;"></i></button>
+            <div class="sep hide-mobile"></div>
+            <button class="btn active" id="btn-scan" onclick="toggleScan()" title="Toggle scanlines"><i class="fa-solid fa-bars-staggered" style="font-size:10px;"></i></button>
+            <button class="btn" id="btn-glow" onclick="toggleGlow()" title="Toggle CRT glow"><i class="fa-solid fa-sun" style="font-size:10px;"></i></button>
+            <div class="sep"></div>
+            <button class="btn btn-primary" onclick="document.getElementById('file-in').click()" title="Open file (Ctrl+O)">
+                <i class="fa-solid fa-folder-open" style="font-size:10px;"></i>
+                <span class="hide-mobile">Open</span>
+            </button>
+            <input type="file" id="file-in" accept=".ans,.txt,.asc,.nfo,.diz,.xb,.pcb" class="hidden">
+        </div>
+    </header>
+
+    <!-- Main canvas area -->
+    <main class="relative flex-1 overflow-hidden z-10" id="main-area">
+        <!-- Drop overlay -->
+        <div id="drop-overlay" class="absolute inset-0 z-30 hidden items-center justify-center">
+            <div class="drop-box p-10 text-center" id="drop-box">
+                <i class="fa-solid fa-file-arrow-down text-3xl mb-3" style="color:var(--accent);"></i>
+                <p class="font-ui text-base" style="color:var(--text);">Drop .ans file here</p>
+                <p class="text-xs mt-1" style="color:var(--muted);">.ans .txt .asc .nfo .diz</p>
+            </div>
+        </div>
+
+        <!-- Canvas scroll container -->
+        <div id="canvas-scroll" class="w-full h-full flex items-center justify-center p-6">
+            <div class="crt-frame scanlines" id="crt-frame">
+                <canvas id="cvs"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- Status bar -->
+    <footer class="relative z-20 flex items-center justify-between px-3 py-1 border-t fade-in" style="border-color:var(--border);background:var(--surface);font-family:'Fira Code',monospace;font-size:10px;color:var(--muted);">
+        <span id="status"><span class="cursor-blink" style="color:var(--accent);">&#9608;</span> Ready &mdash; drop a file or click Open</span>
+        <div class="flex items-center gap-3">
+            <span id="zoom-label">4.0x</span>
+            <span id="cell-label">8×16</span>
+        </div>
+    </footer>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+<script>
+/* ================================================================
+   CP437 → Unicode mapping table
+   ================================================================ */
+const CP437 = (() => {
+    const t = '\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f' +
+        '\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f' +
+        ' !"#$%&\'()*+,-./0123456789:;<=>?' +
+        '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_' +
+        '`abcdefghijklmnopqrstuvwxyz{|}~\x7f' +
+        '\u00c7\u00fc\u00e9\u00e2\u00e4\u00e0\u00e5\u00e7\u00ea\u00eb\u00e8\u00ef\u00ee\u00ec\u00c4\u00c5' +
+        '\u00c9\u00e6\u00c6\u00f4\u00f6\u00f2\u00fb\u00f9\u00ff\u00d6\u00dc\u00a2\u00a3\u00a5\u20a7\u0192' +
+        '\u00e1\u00ed\u00f3\u00fa\u00f1\u00d1\u00aa\u00ba\u00bf\u2310\u00ac\u00bd\u00bc\u00a1\u00ab\u00bb' +
+        '\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510' +
+        '\u2514\u2534\u252c\u251c\u2500\u253c\u2565\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c' +
+        '\u2567\u2568\u2564\u256a\u256b\u2593\u2518\u250c\u2588\u2584\u258c\u2590\u2580' +
+        '\u03b1\u00df\u0393\u03c0\u03a3\u03c3\u03bc\u03c4\u03a6\u0398\u03a9\u03b4\u221e\u03c6\u03b5\u2229' +
+        '\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u00b7\u221a\u207f\u00b2\u25a0 ';
+    const map = {};
+    for (let i = 0; i < 256; i++) map[i] = t[i];
+    return map;
+})();
+
+/* ================================================================
+   Windows-1252 → byte reverse map (for mojibake recovery)
+   ================================================================ */
+const U2C1252 = {
+    0x20AC:0x80,0x201A:0x82,0x0192:0x83,0x201E:0x84,0x2026:0x85,
+    0x2020:0x86,0x2021:0x87,0x02C6:0x88,0x2030:0x89,0x0160:0x8A,
+    0x2039:0x8B,0x0152:0x8C,0x017D:0x8E,0x2018:0x91,0x2019:0x92,
+    0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,
+    0x02DC:0x98,0x2122:0x99,0x0161:0x9A,0x203A:0x9B,0x0153:0x9C,
+    0x017E:0x9E,0x0178:0x9F
+};
+
+/* Fix UTF-8 bytes misinterpreted as Windows-1252 */
+function fixMojibake(s) {
+    const b = [];
+    for (const c of s) {
+        const code = c.codePointAt(0);
+        if (code <= 0x7F) b.push(code);
+        else if (U2C1252[code] !== undefined) b.push(U2C1252[code]);
+        else if (code >= 0xA0 && code <= 0xFF) b.push(code);
+        else b.push(0x3F);
+    }
+    return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(b));
+}
+
+/* Decode CP437 buffer */
+function decCP437(buf) {
+    const bytes = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += CP437[bytes[i]] || '?';
+    return s;
+}
+
+/* Smart buffer decoder */
+function decodeBuf(buf, enc) {
+    if (enc === 'cp437') return decCP437(buf);
+    const utf8 = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+    if (enc === 'utf8') return utf8;
+    if (!utf8.includes('\uFFFD')) return utf8;
+    const fixed = fixMojibake(utf8);
+    if (!fixed.includes('\uFFFD') || fixed !== utf8) return fixed;
+    return decCP437(buf);
+}
+
+/* ================================================================
+   ANSI Parser — state machine
+   ================================================================ */
+function parseAnsi(text) {
+    const grid = [];
+    let row = 0, col = 0;
+    let fg = { r: 187, g: 187, b: 187 };
+    let bg = { r: 0, g: 0, b: 0 };
+    let maxC = 0;
+
+    /* SGR color lookup for standard 16 colors */
+    const FG16 = {
+        30:{r:0,g:0,b:0},31:{r:187,g:0,b:0},32:{r:0,g:187,b:0},33:{r:187,g:187,b:0},
+        34:{r:0,g:0,b:187},35:{r:187,g:0,b:187},36:{r:0,g:187,b:187},37:{r:187,g:187,b:187},
+        90:{r:85,g:85,b:85},91:{r:255,g:85,b:85},92:{r:85,g:255,b:85},93:{r:255,g:255,b:85},
+        94:{r:85,g:85,b:255},95:{r:255,g:85,b:255},96:{r:85,g:255,b:255},97:{r:255,g:255,b:255}
+    };
+    const BG16 = {
+        40:{r:0,g:0,b:0},41:{r:187,g:0,b:0},42:{r:0,g:187,b:0},43:{r:187,g:187,b:0},
+        44:{r:0,g:0,b:187},45:{r:187,g:0,b:187},46:{r:0,g:187,b:187},47:{r:187,g:187,b:187},
+        100:{r:85,g:85,b:85},101:{r:255,g:85,b:85},102:{r:85,g:255,b:85},103:{r:255,g:255,b:85},
+        104:{r:85,g:85,b:255},105:{r:255,g:85,b:255},106:{r:85,g:255,b:255},107:{r:255,g:255,b:255}
+    };
+
+    function applySGR(p) {
+        let i = 0;
+        while (i < p.length) {
+            const v = p[i];
+            if (v === 0) { fg = {r:187,g:187,b:187}; bg = {r:0,g:0,b:0}; }
+            else if (v === 39) fg = {r:187,g:187,b:187};
+            else if (v === 49) bg = {r:0,g:0,b:0};
+            else if (v === 38 && p[i+1] === 2 && i+4 < p.length) { fg = {r:p[i+2],g:p[i+3],b:p[i+4]}; i+=4; }
+            else if (v === 48 && p[i+1] === 2 && i+4 < p.length) { bg = {r:p[i+2],g:p[i+3],b:p[i+4]}; i+=4; }
+            else if (v === 38 && p[i+1] === 5 && i+2 < p.length) { /* 256-color fg — skip */ i+=2; }
+            else if (v === 48 && p[i+1] === 5 && i+2 < p.length) { /* 256-color bg — skip */ i+=2; }
+            else if (FG16[v]) fg = { ...FG16[v] };
+            else if (BG16[v]) bg = { ...BG16[v] };
+            i++;
+        }
+    }
+
+    function parseCSI(from) {
+        let i = from, params = [], cur = '';
+        while (i < text.length) {
+            const c = text[i];
+            if (c >= '0' && c <= '9') { cur += c; }
+            else if (c === ';') { params.push(cur === '' ? 0 : parseInt(cur, 10)); cur = ''; }
+            else if (c === 'm') {
+                params.push(cur === '' ? 0 : parseInt(cur, 10));
+                applySGR(params);
+                return i + 1;
+            }
+            else if (c === 'H' || c === 'f') {
+                params.push(cur === '' ? 0 : parseInt(cur, 10));
+                row = Math.max(0, (params[0] || 1) - 1);
+                col = Math.max(0, (params[1] || 1) - 1);
+                return i + 1;
+            }
+            else if (c === 'A') { row = Math.max(0, row - (parseInt(cur) || 1)); return i + 1; }
+            else if (c === 'B') { row += (parseInt(cur) || 1); return i + 1; }
+            else if (c === 'C') { col += (parseInt(cur) || 1); return i + 1; }
+            else if (c === 'D') { col = Math.max(0, col - (parseInt(cur) || 1)); return i + 1; }
+            else {
+                /* Unknown CSI — skip to terminator */
+                while (i < text.length && !/[a-zA-Z]/.test(text[i])) i++;
+                return i + 1;
+            }
+            i++;
+        }
+        return i;
+    }
+
+    /* Loose detection: bare [ that looks like a CSI sequence */
+    function looksLikeCSI(idx) {
+        if (text[idx] !== '[') return false;
+        let j = idx + 1;
+        if (j >= text.length) return false;
+        if (!/[\d;]/.test(text[j])) return false;
+        while (j < text.length && j - idx < 50) {
+            if (/[a-zA-Z]/.test(text[j])) return true;
+            if (!/[\d;]/.test(text[j])) return false;
+            j++;
+        }
+        return false;
+    }
+
+    let i = 0;
+    while (i < text.length) {
+        const ch = text[i];
+        /* ESC [ sequence */
+        if (ch === '\x1b' && i + 1 < text.length && text[i + 1] === '[') {
+            i = parseCSI(i + 2); continue;
+        }
+        /* Loose bare-[ sequence */
+        if (ch === '[' && looksLikeCSI(i)) {
+            i = parseCSI(i + 1); continue;
+        }
+        if (ch === '\n') { row++; col = 0; i++; continue; }
+        if (ch === '\r') { col = 0; i++; continue; }
+        if (ch === '\t') { col = Math.ceil((col + 1) / 8) * 8; i++; continue; }
+        if (ch === '\x08') { col = Math.max(0, col - 1); i++; continue; }
+
+        /* Output character */
+        if (!grid[row]) grid[row] = [];
+        grid[row][col] = { ch, fg: { ...fg }, bg: { ...bg } };
+        col++;
+        if (col > maxC) maxC = col;
+        i++;
+    }
+    /* Trim empty trailing rows */
+    while (grid.length && (!grid[grid.length - 1] || grid[grid.length - 1].length === 0)) grid.pop();
+    return { grid, rows: grid.length, cols: maxC };
+}
+
+/* ================================================================
+   Canvas Renderer
+   ================================================================ */
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d', { willReadFrequently: false });
+
+/* Block characters that get manual pixel rendering */
+const BLOCKS = {
+    '\u2580': 'upper',   // ▀
+    '\u2584': 'lower',   // ▄
+    '\u2588': 'full',    // █
+    '\u258C': 'left',    // ▌
+    '\u2590': 'right',   // ▐
+    '\u2591': 'shade1',  // ░
+    '\u2592': 'shade2',  // ▒
+    '\u2593': 'shade3',  // ▓
+};
+
+let CW = 8, CH = 16;       // Cell size in pixels
+let zoom = 4;
+let curGrid = null, curRows = 0, curCols = 0;
+let scanOn = true, glowOn = true;
+
+function render(grid, rows, cols) {
+    curGrid = grid; curRows = rows; curCols = cols;
+    const W = cols * CW, H = rows * CH;
+    cvs.width = W; cvs.height = H;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = CH + 'px "Fira Code","Courier New",monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+
+    for (let r = 0; r < rows; r++) {
+        const row = grid[r];
+        if (!row) continue;
+        for (let c = 0; c < row.length; c++) {
+            const cell = row[c];
+            if (!cell) continue;
+            const x = c * CW, y = r * CH;
+
+            /* Background */
+            ctx.fillStyle = 'rgb(' + cell.bg.r + ',' + cell.bg.g + ',' + cell.bg.b + ')';
+            ctx.fillRect(x, y, CW, CH);
+
+            /* Foreground character */
+            const bt = BLOCKS[cell.ch];
+            if (bt) {
+                drawBlock(x, y, bt, cell.fg);
+            } else if (cell.ch !== ' ') {
+                ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
+                ctx.fillText(cell.ch, x + CW / 2, y);
+            }
+        }
+    }
+    applyZoom();
+}
+
+function drawBlock(x, y, type, fg) {
+    const c = 'rgb(' + fg.r + ',' + fg.g + ',' + fg.b + ')';
+    ctx.fillStyle = c;
+    const hw = CW >> 1, hh = CH >> 1;
+    switch (type) {
+        case 'full':  ctx.fillRect(x, y, CW, CH); break;
+        case 'upper': ctx.fillRect(x, y, CW, hh); break;
+        case 'lower': ctx.fillRect(x, y + hh, CW, hh); break;
+        case 'left':  ctx.fillRect(x, y, hw, CH); break;
+        case 'right': ctx.fillRect(x + hw, y, hw, CH); break;
+        case 'shade1': /* 25% checkerboard */
+            for (let py = 0; py < CH; py += 2)
+                for (let px = (py / 2) % 2; px < CW; px += 2)
+                    ctx.fillRect(x + px, y + py, 1, 1);
+            break;
+        case 'shade2': /* 50% checkerboard */
+            for (let py = 0; py < CH; py++)
+                for (let px = (py % 2); px < CW; px += 2)
+                    ctx.fillRect(x + px, y + py, 1, 1);
+            break;
+        case 'shade3': /* 75% — inverse of 25% */
+            ctx.fillRect(x, y, CW, CH);
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            for (let py = 0; py < CH; py += 2)
+                for (let px = (py / 2) % 2; px < CW; px += 2)
+                    ctx.fillRect(x + px, y + py, 1, 1);
+            break;
+    }
+}
+
+function applyZoom() {
+    const dw = curCols * CW * zoom, dh = curRows * CH * zoom;
+    cvs.style.width = dw + 'px';
+    cvs.style.height = dh + 'px';
+    cvs.style.imageRendering = zoom >= 2 ? 'pixelated' : 'auto';
+    document.getElementById('zoom-label').textContent = zoom.toFixed(1) + 'x';
+    document.getElementById('cell-label').textContent = CW + '\u00d7' + CH;
+}
+
+function setZoom(v) {
+    zoom = Math.max(1, Math.min(10, parseFloat(v)));
+    document.getElementById('zoom-range').value = zoom;
+    applyZoom();
+}
+function zoomIn()  { setZoom(zoom + 0.5); }
+function zoomOut() { setZoom(zoom - 0.5); }
+
+function fitView() {
+    if (!curGrid) return;
+    const sc = document.getElementById('canvas-scroll');
+    const pad = 60;
+    const zw = (sc.clientWidth - pad) / (curCols * CW);
+    const zh = (sc.clientHeight - pad) / (curRows * CH);
+    setZoom(Math.max(1, Math.min(10, Math.floor(Math.min(zw, zh) * 2) / 2)));
+}
+
+function toggleScan() {
+    scanOn = !scanOn;
+    const frame = document.getElementById('crt-frame');
+    const btn = document.getElementById('btn-scan');
+    frame.classList.toggle('scanlines', scanOn);
+    btn.classList.toggle('active', scanOn);
+}
+
+function toggleGlow() {
+    glowOn = !glowOn;
+    const frame = document.getElementById('crt-frame');
+    const btn = document.getElementById('btn-glow');
+    frame.classList.toggle('crt-frame', glowOn);
+    btn.classList.toggle('active', glowOn);
+}
+
+/* ================================================================
+   File Handling
+   ================================================================ */
+function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const buf = e.target.result;
+        const enc = document.getElementById('enc-sel').value;
+        const text = decodeBuf(buf, enc);
+        const { grid, rows, cols } = parseAnsi(text);
+        if (rows === 0 || cols === 0) { toast('No renderable content found'); return; }
+        render(grid, rows, cols);
+        fitView();
+        showInfo(file.name, fmtSize(file.size), cols + '\u00d7' + rows);
+        setStatus('Rendered ' + cols + '\u00d7' + rows + ' cells from ' + file.name);
+        toast('Loaded ' + file.name);
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function showInfo(name, size, dims) {
+    const el = document.getElementById('file-info');
+    el.classList.remove('hidden'); el.classList.add('flex');
+    document.getElementById('file-name').textContent = name;
+    document.getElementById('file-size').textContent = size;
+    document.getElementById('file-dims').textContent = dims;
+}
+
+function setStatus(msg) {
+    document.getElementById('status').innerHTML =
+        '<span class="cursor-blink" style="color:var(--accent);">&#9608;</span> ' + msg;
+}
+
+document.getElementById('file-in').addEventListener('change', function (e) {
+    if (e.target.files.length) loadFile(e.target.files[0]);
+});
+
+/* Drag & drop */
+let dragN = 0;
+const mainArea = document.getElementById('main-area');
+const dropOv = document.getElementById('drop-overlay');
+const dropBox = document.getElementById('drop-box');
+
+mainArea.addEventListener('dragenter', function (e) {
+    e.preventDefault(); dragN++;
+    dropOv.classList.remove('hidden'); dropOv.classList.add('flex');
+    dropBox.classList.add('active');
+});
+mainArea.addEventListener('dragleave', function (e) {
+    e.preventDefault(); dragN--;
+    if (dragN <= 0) { dragN = 0; dropOv.classList.add('hidden'); dropOv.classList.remove('flex'); dropBox.classList.remove('active'); }
+});
+mainArea.addEventListener('dragover', function (e) { e.preventDefault(); });
+mainArea.addEventListener('drop', function (e) {
+    e.preventDefault(); dragN = 0;
+    dropOv.classList.add('hidden'); dropOv.classList.remove('flex'); dropBox.classList.remove('active');
+    if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+/* Re-load on encoding change */
+document.getElementById('enc-sel').addEventListener('change', function () {
+    const fi = document.getElementById('file-in');
+    if (fi.files.length) loadFile(fi.files[0]);
+});
+
+/* Mouse wheel zoom on canvas */
+document.getElementById('canvas-scroll').addEventListener('wheel', function (e) {
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn(); else zoomOut();
+    }
+}, { passive: false });
+
+/* ================================================================
+   Toast
+   ================================================================ */
+let toastTimer = null;
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ================================================================
+   Keyboard Shortcuts
+   ================================================================ */
+document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
+    else if (e.key === '-') { e.preventDefault(); zoomOut(); }
+    else if (e.key === '0') { e.preventDefault(); fitView(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); document.getElementById('file-in').click(); }
+});
+
+/* ================================================================
+   Sample Data — the provided ansi.txt content
+   (mojibake fixed: â–€ → ▀, bare [ sequences kept for loose parse)
+   ================================================================ */
+const SAMPLE = [
+'[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580\u2580\u2580\u2580[38;2;0;0;0m[48;2;211;202;200m\u2580[38;2;0;0;0m[48;2;160;175;211m\u2580[38;2;5;6;6m[48;2;121;152;202m\u2580[38;2;121;159;196m[48;2;98;142;198m\u2580[38;2;108;155;201m[48;2;91;140;197m\u2580[38;2;168;223;248m[48;2;94;142;195m\u2580[38;2;3;4;5m[48;2;100;144;193m\u2580[38;2;0;0;0m[48;2;94;144;199m\u2580[38;2;0;0;0m[48;2;161;217;244m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580[38;2;0;0;0m[48;2;138;141;141m\u2580[38;2;244;241;239m[48;2;235;246;247m\u2580[38;2;234;237;247m[48;2;214;239;248m\u2580[38;2;164;175;214m[48;2;185;224;251m\u2580[38;2;107;136;174m[48;2;174;221;245m\u2580[38;2;102;142;202m[48;2;161;218;247m\u2580[38;2;128;177;225m[48;2;75;121;178m\u2580[38;2;99;148;195m[48;2;91;138;196m\u2580[38;2;147;208;244m[48;2;92;132;196m\u2580[38;2;94;142;195m[48;2;90;135;198m\u2580[38;2;87;135;193m[48;2;90;136;195m\u2580[38;2;83;130;192m[48;2;91;135;195m\u2580[38;2;83;133;194m[48;2;80;128;191m\u2580[38;2;0;0;0m[48;2;168;234;250m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[38;2;0;0;0m[48;2;248;245;242m\u2580[38;2;237;220;235m[48;2;210;209;217m\u2580[38;2;171;180;215m[48;2;123;152;202m\u2580[38;2;123;149;194m[48;2;98;141;196m\u2580[38;2;102;142;191m[48;2;53;84;143m\u2580[38;2;97;140;198m[48;2;99;142;197m\u2580[38;2;95;138;197m[48;2;101;142;195m\u2580[38;2;92;136;195m[48;2;101;142;197m\u2580[38;2;93;137;196m[48;2;98;141;196m\u2580[38;2;84;64;80m[48;2;123;91;100m\u2580[38;2;93;136;199m[48;2;245;241;231m\u2580[38;2;233;235;226m[48;2;113;76;50m\u2580[38;2;189;160;125m[48;2;108;69;41m\u2580[38;2;64;52;60m[48;2;76;118;178m\u2580[38;2;80;158;218m[48;2;70;124;186m\u2580[38;2;0;0;0m[48;2;156;215;231m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[0m',
+'[38;2;243;243;242m[48;2;0;0;0m\u2580[38;2;223;229;241m[48;2;0;0;0m\u2580[38;2;187;188;218m[48;2;149;171;206m\u2580[38;2;122;154;201m[48;2;97;140;195m\u2580[38;2;97;138;193m[48;2;72;103;154m\u2580[38;2;96;139;194m[48;2;63;97;141m\u2580[38;2;186;126;126m[48;2;244;218;200m\u2580[38;2;109;146;198m[48;2;125;149;194m\u2580[38;2;114;148;199m[48;2;134;157;201m\u2580[38;2;114;148;196m[48;2;134;156;199m\u2580[38;2;109;147;196m[48;2;69;48;73m\u2580[38;2;190;126;125m[48;2;145;107;99m\u2580[38;2;244;217;206m[48;2;154;130;126m\u2580[38;2;58;99;159m[48;2;247;214;209m\u2580[38;2;90;135;193m[48;2;138;163;199m\u2580[38;2;63;111;170m[48;2;90;132;193m\u2580[38;2;48;95;161m[48;2;49;95;160m\u2580[38;2;77;134;193m[48;2;70;128;187m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580[38;2;0;0;0m[48;2;95;108;119m\u2580[38;2;79;105;161m[48;2;79;112;153m\u2580[38;2;105;144;198m[48;2;111;146;198m\u2580[38;2;53;69;115m[48;2;78;80;117m\u2580[38;2;200;126;127m[48;2;50;28;42m\u2580[38;2;198;167;154m[48;2;18;16;53m\u2580[38;2;148;162;196m[48;2;229;203;203m\u2580[38;2;158;167;203m[48;2;245;222;207m\u2580[38;2;163;167;201m[48;2;185;172;197m\u2580[38;2;243;214;206m[48;2;144;115;124m\u2580[38;2;175;152;179m[48;2;27;38;99m\u2580[38;2;29;43;102m[48;2;9;22;68m\u2580[38;2;180;152;175m[48;2;13;25;78m\u2580[38;2;92;74;87m[48;2;104;102;132m\u2580[38;2;98;138;194m[48;2;53;82;130m\u2580[38;2;51;93;157m[48;2;52;89;152m\u2580[38;2;60;127;183m[48;2;61;118;180m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580[38;2;201;215;232m[48;2;0;0;0m\u2580[38;2;71;104;149m[48;2;96;120;161m\u2580[38;2;118;151;197m[48;2;44;56;88m\u2580[38;2;115;80;93m[48;2;159;160;191m\u2580[38;2;176;154;177m[48;2;250;250;246m\u2580[38;2;20;33;89m[48;2;21;77;135m\u2580[38;2;204;208;226m[48;2;74;132;191m\u2580[38;2;246;224;205m[48;2;248;223;210m\u2580[38;2;247;224;210m[48;2;247;225;211m\u2580[38;2;246;224;208m[48;2;247;224;210m\u2580[38;2;5;40;101m[48;2;210;223;232m\u2580[38;2;39;98;159m[48;2;241;247;247m\u2580[38;2;19;63;124m[48;2;68;119;156m\u2580[38;2;152;162;201m[48;2;154;160;194m\u2580[38;2;69;107;169m[48;2;67;106;171m\u2580[38;2;50;89;154m[48;2;53;94;159m\u2580[38;2;58;113;176m[48;2;25;69;127m\u2580[38;2;0;0;0m[48;2;88;154;211m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580[38;2;0;0;0m[48;2;22;22;22m\u2580[38;2;87;130;190m[48;2;96;143;199m\u2580[38;2;61;99;164m[48;2;63;105;165m\u2580[38;2;138;152;201m[48;2;61;95;157m\u2580[38;2;242;214;197m[48;2;224;140;140m\u2580[38;2;133;201;241m[48;2;238;145;139m\u2580[38;2;186;224;235m[48;2;247;188;180m\u2580[38;2;246;221;209m[48;2;247;218;205m\u2580[38;2;247;224;208m[48;2;163;72;89m\u2580[38;2;247;224;208m[48;2;246;145;156m\u2580[38;2;248;207;195m[48;2;248;212;198m\u2580[38;2;248;160;156m[48;2;247;188;178m\u2580[38;2;199;128;130m[48;2;157;164;199m\u2580[38;2;124;146;193m[48;2;84;125;183m\u2580[38;2;60;103;169m[48;2;62;112;177m\u2580[38;2;54;102;167m[48;2;62;117;180m\u2580[38;2;62;125;186m[48;2;82;152;210m\u2580[38;2;37;55;70m[48;2;0;0;0m\u2580[38;2;111;172;216m[48;2;0;0;0m\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580[38;2;164;199;238m[48;2;0;0;0m\u2580[38;2;27;28;30m[48;2;140;188;213m\u2580[38;2;46;90;148m[48;2;87;140;197m\u2580[38;2;61;98;161m[48;2;70;117;179m\u2580[38;2;241;216;208m[48;2;71;119;177m\u2580[38;2;248;181;173m[48;2;48;61;98m\u2580[38;2;248;205;194m[48;2;245;219;206m\u2580[38;2;247;222;206m[48;2;244;223;208m\u2580[38;2;247;224;210m[48;2;243;224;210m\u2580[38;2;247;225;210m[48;2;245;222;210m\u2580[38;2;248;220;206m[48;2;203;170;165m\u2580[38;2;249;217;205m[48;2;0;0;0m\u2580[38;2;208;216;238m[48;2;115;163;213m\u2580[38;2;86;131;194m[48;2;63;113;168m\u2580[38;2;30;71;120m[48;2;79;139;195m\u2580[38;2;81;143;204m[48;2;107;177;227m\u2580[38;2;106;182;229m[48;2;145;216;234m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580[38;2;54;71;79m[48;2;0;0;0m\u2580[38;2;121;174;211m[48;2;158;207;227m\u2580[38;2;99;152;187m[48;2;0;0;0m\u2580[38;2;92;152;207m[48;2;40;46;54m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580\u2580\u2580\u2580\u2580[38;2;137;187;221m[48;2;0;0;0m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580[38;2;5;6;6m[48;2;0;0;0m\u2580[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580\u2580[0m',
+'[38;2;0;0;0m[48;2;0;0;0m\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580[0m'
+].join('\n');
+
+/* ================================================================
+   Initialize
+   ================================================================ */
+document.fonts.ready.then(() => {
+    requestAnimationFrame(() => {
+        const { grid, rows, cols } = parseAnsi(SAMPLE);
+        render(grid, rows, cols);
+        fitView();
+        showInfo('ansi.txt (sample)', 'Sample', cols + '\u00d7' + rows);
+        setStatus('Sample loaded \u2014 ' + cols + ' cols \u00d7 ' + rows + ' rows \u2014 drop a file or click Open');
+    });
+});
+
+/* Handle window resize */
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (curGrid) fitView(); }, 150);
+});
+</script>
+</body>
+</html>
