@@ -3,28 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANSI Test</title>
+    <title>ANSI Art Collection</title>
     <style>
-        #output {
+        body {
+            --preview-size: 15em
+        }
+        /* #output {
             font-family: 'Courier New', Courier, monospace;
             font-size: 14px;
             line-height: 1.1;
             white-space: pre;
             background-color: #000;
-            display: inline-block; /* Shrink wrapper to fit the art */
+            display: inline-block;
             padding: 10px;
             border-radius: 4px;
+        } */
+        #container div {
+            width: var(--preview-size);
+            aspect-ratio: 1;
+            align-content: center;
+            text-align: center;
+            border-radius: 1em;
+            background-color: black;
+        }
+        canvas {
+            width: calc(var(--preview-size) * 0.8);
+            image-rendering: pixelated;
         }
     </style>
 </head>
 <body>
+    <h1>ANSI Art Collection</h1>
     <span id="output_raw"></span>
     <span id="output"></span>
+    <div id="container"></div>
+    <div id="cvs-wrapper"><canvas id="cvs"></canvas></div>
     <script>
-        /**
-         * Returns elements recreating an ANSI string.
-         * Handles 24-bit RGB (38;2;r;g;b and 48;2;r;g;b) and standard 256-color codes.
-         */
         function renderAnsi(ansiString) {
             // Performance optimization: Build HTML in an array rather than string concatenation
             const htmlParts = [];
@@ -129,15 +143,277 @@
             return htmlParts.join('');
         }
         
-        output = document.querySelector('#output');
-        output_raw = document.querySelector('#output_raw');
+        function fixMojibake(s) {
+            const b = [];
+            for (const c of s) {
+                const code = c.codePointAt(0);
+                if (code <= 0x7F) b.push(code);
+                else if (U2C1252[code] !== undefined) b.push(U2C1252[code]);
+                else if (code >= 0xA0 && code <= 0xFF) b.push(code);
+                else b.push(0x3F);
+            }
+            return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(b));
+        }
 
-        fetch('./Anime Girl Head/anime_girl_head.ans')
-            .then(r=>r.text())
-            .then(text => {
-                output_raw.innerText = text;
-                output.innerHTML = renderAnsi(text);
-            })
+        function decCP437(buf) {
+            const bytes = new Uint8Array(buf);
+            let s = '';
+            for (let i = 0; i < bytes.length; i++) s += CP437[bytes[i]] || '?';
+            return s;
+        }
+
+        function decodeBuf(buf, enc) {
+            if (enc === 'cp437') return decCP437(buf);
+            const utf8 = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+            if (enc === 'utf8') return utf8;
+            if (!utf8.includes('\uFFFD')) return utf8;
+            const fixed = fixMojibake(utf8);
+            if (!fixed.includes('\uFFFD') || fixed !== utf8) return fixed;
+            return decCP437(buf);
+        }
+
+        function parseAnsi(text) {
+            const grid = [];
+            let row = 0, col = 0;
+            let fg = { r: 187, g: 187, b: 187 };
+            let bg = { r: 0, g: 0, b: 0 };
+            let maxC = 0;
+
+            /* SGR color lookup for standard 16 colors */
+            const FG16 = {
+                30:{r:0,g:0,b:0},31:{r:187,g:0,b:0},32:{r:0,g:187,b:0},33:{r:187,g:187,b:0},
+                34:{r:0,g:0,b:187},35:{r:187,g:0,b:187},36:{r:0,g:187,b:187},37:{r:187,g:187,b:187},
+                90:{r:85,g:85,b:85},91:{r:255,g:85,b:85},92:{r:85,g:255,b:85},93:{r:255,g:255,b:85},
+                94:{r:85,g:85,b:255},95:{r:255,g:85,b:255},96:{r:85,g:255,b:255},97:{r:255,g:255,b:255}
+            };
+            const BG16 = {
+                40:{r:0,g:0,b:0},41:{r:187,g:0,b:0},42:{r:0,g:187,b:0},43:{r:187,g:187,b:0},
+                44:{r:0,g:0,b:187},45:{r:187,g:0,b:187},46:{r:0,g:187,b:187},47:{r:187,g:187,b:187},
+                100:{r:85,g:85,b:85},101:{r:255,g:85,b:85},102:{r:85,g:255,b:85},103:{r:255,g:255,b:85},
+                104:{r:85,g:85,b:255},105:{r:255,g:85,b:255},106:{r:85,g:255,b:255},107:{r:255,g:255,b:255}
+            };
+
+            function applySGR(p) {
+                let i = 0;
+                while (i < p.length) {
+                    const v = p[i];
+                    if (v === 0) { fg = {r:187,g:187,b:187}; bg = {r:0,g:0,b:0}; }
+                    else if (v === 39) fg = {r:187,g:187,b:187};
+                    else if (v === 49) bg = {r:0,g:0,b:0};
+                    else if (v === 38 && p[i+1] === 2 && i+4 < p.length) { fg = {r:p[i+2],g:p[i+3],b:p[i+4]}; i+=4; }
+                    else if (v === 48 && p[i+1] === 2 && i+4 < p.length) { bg = {r:p[i+2],g:p[i+3],b:p[i+4]}; i+=4; }
+                    else if (v === 38 && p[i+1] === 5 && i+2 < p.length) { /* 256-color fg — skip */ i+=2; }
+                    else if (v === 48 && p[i+1] === 5 && i+2 < p.length) { /* 256-color bg — skip */ i+=2; }
+                    else if (FG16[v]) fg = { ...FG16[v] };
+                    else if (BG16[v]) bg = { ...BG16[v] };
+                    i++;
+                }
+            }
+
+            function parseCSI(from) {
+                let i = from, params = [], cur = '';
+                while (i < text.length) {
+                    const c = text[i];
+                    if (c >= '0' && c <= '9') { cur += c; }
+                    else if (c === ';') { params.push(cur === '' ? 0 : parseInt(cur, 10)); cur = ''; }
+                    else if (c === 'm') {
+                        params.push(cur === '' ? 0 : parseInt(cur, 10));
+                        applySGR(params);
+                        return i + 1;
+                    }
+                    else if (c === 'H' || c === 'f') {
+                        params.push(cur === '' ? 0 : parseInt(cur, 10));
+                        row = Math.max(0, (params[0] || 1) - 1);
+                        col = Math.max(0, (params[1] || 1) - 1);
+                        return i + 1;
+                    }
+                    else if (c === 'A') { row = Math.max(0, row - (parseInt(cur) || 1)); return i + 1; }
+                    else if (c === 'B') { row += (parseInt(cur) || 1); return i + 1; }
+                    else if (c === 'C') { col += (parseInt(cur) || 1); return i + 1; }
+                    else if (c === 'D') { col = Math.max(0, col - (parseInt(cur) || 1)); return i + 1; }
+                    else {
+                        /* Unknown CSI — skip to terminator */
+                        while (i < text.length && !/[a-zA-Z]/.test(text[i])) i++;
+                        return i + 1;
+                    }
+                    i++;
+                }
+                return i;
+            }
+
+            /* Loose detection: bare [ that looks like a CSI sequence */
+            function looksLikeCSI(idx) {
+                if (text[idx] !== '[') return false;
+                let j = idx + 1;
+                if (j >= text.length) return false;
+                if (!/[\d;]/.test(text[j])) return false;
+                while (j < text.length && j - idx < 50) {
+                    if (/[a-zA-Z]/.test(text[j])) return true;
+                    if (!/[\d;]/.test(text[j])) return false;
+                    j++;
+                }
+                return false;
+            }
+
+            let i = 0;
+            while (i < text.length) {
+                const ch = text[i];
+                /* ESC [ sequence */
+                if (ch === '\x1b' && i + 1 < text.length && text[i + 1] === '[') {
+                    i = parseCSI(i + 2); continue;
+                }
+                /* Loose bare-[ sequence */
+                if (ch === '[' && looksLikeCSI(i)) {
+                    i = parseCSI(i + 1); continue;
+                }
+                if (ch === '\n') { row++; col = 0; i++; continue; }
+                if (ch === '\r') { col = 0; i++; continue; }
+                if (ch === '\t') { col = Math.ceil((col + 1) / 8) * 8; i++; continue; }
+                if (ch === '\x08') { col = Math.max(0, col - 1); i++; continue; }
+
+                /* Output character */
+                if (!grid[row]) grid[row] = [];
+                grid[row][col] = { ch, fg: { ...fg }, bg: { ...bg } };
+                col++;
+                if (col > maxC) maxC = col;
+                i++;
+            }
+            /* Trim empty trailing rows */
+            while (grid.length && (!grid[grid.length - 1] || grid[grid.length - 1].length === 0)) grid.pop();
+            return { grid, rows: grid.length, cols: maxC };
+        }
+
+        function render(grid, rows, cols) {
+            let curGrid = grid; let curRows = rows; let curCols = cols;
+            const W = cols * CW, H = rows * CH;
+            cvs.width = W; cvs.height = H;
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = CH + 'px "Fira Code","Courier New",monospace';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'center';
+
+            for (let r = 0; r < rows; r++) {
+                const row = grid[r];
+                if (!row) continue;
+                for (let c = 0; c < row.length; c++) {
+                    const cell = row[c];
+                    if (!cell) continue;
+                    const x = c * CW, y = r * CH;
+
+                    /* Background */
+                    ctx.fillStyle = 'rgb(' + cell.bg.r + ',' + cell.bg.g + ',' + cell.bg.b + ')';
+                    ctx.fillRect(x, y, CW, CH);
+
+                    /* Foreground character */
+                    const bt = BLOCKS[cell.ch];
+                    if (bt) {
+                        drawBlock(x, y, bt, cell.fg);
+                    } else if (cell.ch !== ' ') {
+                        ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
+                        ctx.fillText(cell.ch, x + CW / 2, y);
+                    }
+                }
+            }
+        }
+
+        function drawBlock(x, y, type, fg) {
+            const c = 'rgb(' + fg.r + ',' + fg.g + ',' + fg.b + ')';
+            ctx.fillStyle = c;
+            const hw = CW >> 1, hh = CH >> 1;
+            switch (type) {
+                case 'full':  ctx.fillRect(x, y, CW, CH); break;
+                case 'upper': ctx.fillRect(x, y, CW, hh); break;
+                case 'lower': ctx.fillRect(x, y + hh, CW, hh); break;
+                case 'left':  ctx.fillRect(x, y, hw, CH); break;
+                case 'right': ctx.fillRect(x + hw, y, hw, CH); break;
+                case 'shade1': /* 25% checkerboard */
+                    for (let py = 0; py < CH; py += 2)
+                        for (let px = (py / 2) % 2; px < CW; px += 2)
+                            ctx.fillRect(x + px, y + py, 1, 1);
+                    break;
+                case 'shade2': /* 50% checkerboard */
+                    for (let py = 0; py < CH; py++)
+                        for (let px = (py % 2); px < CW; px += 2)
+                            ctx.fillRect(x + px, y + py, 1, 1);
+                    break;
+                case 'shade3': /* 75% — inverse of 25% */
+                    ctx.fillRect(x, y, CW, CH);
+                    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+                    for (let py = 0; py < CH; py += 2)
+                        for (let px = (py / 2) % 2; px < CW; px += 2)
+                            ctx.fillRect(x + px, y + py, 1, 1);
+                    break;
+            }
+        }
+
+        const container = document.getElementById('container');
+        // const ctx = cvs.getContext('2d', { willReadFrequently: false });
+        const output = document.querySelector('#output');
+        const output_raw = document.querySelector('#output_raw');
+        
+        const BLOCKS = {
+            '\u2580': 'upper',   // ▀
+            '\u2584': 'lower',   // ▄
+            '\u2588': 'full',    // █
+            '\u258C': 'left',    // ▌
+            '\u2590': 'right',   // ▐
+            '\u2591': 'shade1',  // ░
+            '\u2592': 'shade2',  // ▒
+            '\u2593': 'shade3',  // ▓
+        };
+        
+        const CP437 = (() => {
+            const t = '\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f' +
+            '\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f' +
+            ' !"#$%&\'()*+,-./0123456789:;<=>?' +
+            '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_' +
+            '`abcdefghijklmnopqrstuvwxyz{|}~\x7f' +
+            '\u00c7\u00fc\u00e9\u00e2\u00e4\u00e0\u00e5\u00e7\u00ea\u00eb\u00e8\u00ef\u00ee\u00ec\u00c4\u00c5' +
+            '\u00c9\u00e6\u00c6\u00f4\u00f6\u00f2\u00fb\u00f9\u00ff\u00d6\u00dc\u00a2\u00a3\u00a5\u20a7\u0192' +
+            '\u00e1\u00ed\u00f3\u00fa\u00f1\u00d1\u00aa\u00ba\u00bf\u2310\u00ac\u00bd\u00bc\u00a1\u00ab\u00bb' +
+            '\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510' +
+            '\u2514\u2534\u252c\u251c\u2500\u253c\u2565\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c' +
+            '\u2567\u2568\u2564\u256a\u256b\u2593\u2518\u250c\u2588\u2584\u258c\u2590\u2580' +
+            '\u03b1\u00df\u0393\u03c0\u03a3\u03c3\u03bc\u03c4\u03a6\u0398\u03a9\u03b4\u221e\u03c6\u03b5\u2229' +
+            '\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u00b7\u221a\u207f\u00b2\u25a0 ';
+            const map = {};
+            for (let i = 0; i < 256; i++) map[i] = t[i];
+            return map;
+        })();
+        
+        const U2C1252 = {
+            0x20AC:0x80,0x201A:0x82,0x0192:0x83,0x201E:0x84,0x2026:0x85,
+            0x2020:0x86,0x2021:0x87,0x02C6:0x88,0x2030:0x89,0x0160:0x8A,
+            0x2039:0x8B,0x0152:0x8C,0x017D:0x8E,0x2018:0x91,0x2019:0x92,
+            0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,
+            0x02DC:0x98,0x2122:0x99,0x0161:0x9A,0x203A:0x9B,0x0153:0x9C,
+            0x017E:0x9E,0x0178:0x9F
+        };
+        
+        let CW = 8, CH = 16;
+        let cvs, ctx;
+        
+        fetch('./paths.json')
+        .then(r => r.text())
+        .then(text => {
+            JSON.parse(text).forEach(path => {
+                fetch(`./${path}/logo.ans`)
+                .then(r => r.text())
+                .then(text => {
+                    // output_raw.innerText = text;
+                    // output.innerHTML = renderAnsi(text);
+                    cvs = document.createElement('canvas');
+                    ctx = cvs.getContext('2d', { willReadFrequently: false });
+                    const { grid, rows, cols } = parseAnsi(text);
+                    render(grid, rows, cols);
+                    wrapper = document.createElement('div');
+                    wrapper.append(cvs)
+                    container.append(wrapper);
+                })
+            });
+        })
     </script>
 </body>
 </html>
