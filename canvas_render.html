@@ -733,7 +733,7 @@ const SAMPLE = [
    ================================================================ */
 document.fonts.ready.then(() => {
     requestAnimationFrame(() => {
-        fetch('./Anime Girl Head/anime_girl_head.ans')
+        fetch('./Anime Girl Head/logo.ans')
             .then(r=>r.text())
             .then(text => {
                 const { grid, rows, cols } = parseAnsi(text);
