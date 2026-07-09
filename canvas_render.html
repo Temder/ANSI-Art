@@ -733,11 +733,15 @@ const SAMPLE = [
    ================================================================ */
 document.fonts.ready.then(() => {
     requestAnimationFrame(() => {
-        const { grid, rows, cols } = parseAnsi(SAMPLE);
-        render(grid, rows, cols);
-        fitView();
-        showInfo('ansi.txt (sample)', 'Sample', cols + '\u00d7' + rows);
-        setStatus('Sample loaded \u2014 ' + cols + ' cols \u00d7 ' + rows + ' rows \u2014 drop a file or click Open');
+        fetch('./Anime Girl Head/anime_girl_head.ans')
+            .then(r=>r.text())
+            .then(text => {
+                const { grid, rows, cols } = parseAnsi(text);
+                render(grid, rows, cols);
+                fitView();
+                showInfo('ansi.txt (sample)', 'Sample', cols + '\u00d7' + rows);
+                setStatus('Sample loaded \u2014 ' + cols + ' cols \u00d7 ' + rows + ' rows \u2014 drop a file or click Open');
+            })
     });
 });
 
