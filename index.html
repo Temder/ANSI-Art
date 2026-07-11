@@ -7,39 +7,71 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <title>ANSI Art Collection</title>
     <style>
-        body {
-            --preview-size: 15em
-        }
-        /* #output {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            line-height: 1.1;
-            white-space: pre;
-            background-color: #000;
-            display: inline-block;
-            padding: 10px;
-            border-radius: 4px;
-        } */
-        #container div {
-            width: var(--preview-size);
-            aspect-ratio: 1;
-            align-content: center;
-            text-align: center;
-            border-radius: 1em;
-            background-color: black;
-        }
-        canvas {
-            width: calc(var(--preview-size) * 0.8);
-            image-rendering: pixelated;
+        #container {
+            width: 75vw;
+            margin: 0 auto;
+            column-width: clamp(10em, 22vw, 15em);
+            & div {
+                position: relative;
+                padding: 1em;
+                margin-bottom: 1em;
+                border-radius: 1em;
+                background-color: black;
+                &::before {
+                    content: attr(data-name);
+                    position: absolute;
+                    width: calc(100% - 0.5em);
+                    left: 0;
+                    bottom: 0.5em;
+                    padding: 0.25em;
+                    text-align: center;
+                    background-color: rgba(0, 0, 0, 0.75);
+                    color: white;
+                }
+                &::after {
+                    content: "";
+                    display: none;
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 1em;
+                    background-color: rgba(0, 0, 0, 0.75);
+                    pointer-events: none;
+                }
+                &:focus {
+                    &::after {
+                        display: initial;
+                    }
+                    & a {
+                        display: initial;
+                        z-index: 1;
+                    }
+                }
+                & canvas {
+                    width: 100%;
+                    image-rendering: pixelated;
+                }
+                & a {
+                    display: none;
+                    position: absolute;
+                    top: 1em;
+                    left: 1em;
+                    padding: 0.5em;
+                    text-decoration: none;
+                    border: solid 1px white;
+                    border-radius: 0.5em;
+                    color: white;
+                    background-color: rgba(0, 0, 0, 0.75);
+                    &:active {
+                        display: initial;
+                    }
+                }
+            }
         }
     </style>
 </head>
 <body>
     <h1>ANSI Art Collection</h1>
-    <span id="output_raw"></span>
-    <span id="output"></span>
     <div id="container"></div>
-    <div id="cvs-wrapper"><canvas id="cvs"></canvas></div>
     <script>
 function renderAnsi(ansiString) {
     // Performance optimization: Build HTML in an array rather than string concatenation
@@ -306,14 +338,26 @@ function render(grid, rows, cols) {
 
             /* Background */
             ctx.fillStyle = 'rgb(' + cell.bg.r + ',' + cell.bg.g + ',' + cell.bg.b + ')';
-            ctx.fillRect(x, y, CW, CH);
+            // if (cell.bg.r <= 10 && cell.bg.g <= 10 && cell.bg.b <= 10) {
+            //     ctx.fillStyle = 'rgba(0,0,0,0)';
+            // } else {
+                ctx.fillRect(x, y, CW, CH);
+            // }
 
             /* Foreground character */
+            // if (cell.fg.r <= 10 && cell.fg.g <= 10 && cell.fg.b <= 10) {
+            //     ctx.fillStyle = 'rgba(0,0,0,0)';
+            //     continue;
+            // }
             const bt = BLOCKS[cell.ch];
             if (bt) {
                 drawBlock(x, y, bt, cell.fg);
             } else if (cell.ch !== ' ') {
-                ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
+                // if (cell.fg.r <= 10 && cell.fg.g <= 10 && cell.fg.b <= 10) {
+                //     ctx.fillStyle = 'rgba(0,0,0,0)';
+                // } else {
+                    ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
+                // }
                 ctx.fillText(cell.ch, x + CW / 2, y);
             }
         }
@@ -349,10 +393,6 @@ function drawBlock(x, y, type, fg) {
             break;
     }
 }
-
-const container = document.getElementById('container');
-const output = document.querySelector('#output');
-const output_raw = document.querySelector('#output_raw');
 
 const BLOCKS = {
     '\u2580': 'upper',   // ▀
@@ -393,6 +433,8 @@ const U2C1252 = {
     0x017E:0x9E,0x0178:0x9F
 };
 
+const container = document.getElementById('container');
+
 let CW = 8, CH = 16;
 let cvs, ctx;
 
@@ -402,17 +444,23 @@ document.fonts.ready.then(() => {
         .then(r => r.text())
         .then(text => {
             JSON.parse(text).forEach(path => {
-                fetch(`./${path}/logo.ans`)
+                fetch(`./ANSI Art/${path}/logo.ans`)
                 .then(r => r.text())
                 .then(text => {
-                    // output_raw.innerText = text;
-                    // output.innerHTML = renderAnsi(text);
                     cvs = document.createElement('canvas');
                     ctx = cvs.getContext('2d', { willReadFrequently: false });
                     const { grid, rows, cols } = parseAnsi(text);
                     render(grid, rows, cols);
+                    btn_download = document.createElement('a');
+                    btn_download.innerText = 'Download .ans';
+                    btn_download.href = `./ANSI Art/${path}/logo.ans`;
+                    btn_download.download = `${path.replaceAll(' ', '_')}.ans`;
                     wrapper = document.createElement('div');
+                    wrapper.setAttribute('data-name', path);
+                    wrapper.tabIndex = 0;
+
                     wrapper.append(cvs)
+                    wrapper.append(btn_download);
                     container.append(wrapper);
                 })
             });
