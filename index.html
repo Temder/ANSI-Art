@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <title>ANSI Art Collection</title>
     <style>
+        body {
+            --color-main-fg: light-dark(#000, #fff);
+            --color-main-bg: light-dark(#ddd, #222);
+            color-scheme: light dark;
+            color: var(--color-main-fg);
+            background-color: var(--color-main-bg);
+        }
         #container {
             width: 75vw;
             margin: 0 auto;
@@ -15,7 +22,7 @@
                 position: relative;
                 padding: 1em;
                 margin-bottom: 1em;
-                border-radius: 1em;
+                border-radius: 0.5em;
                 background-color: black;
                 &::before {
                     content: attr(data-name);
@@ -28,21 +35,10 @@
                     background-color: rgba(0, 0, 0, 0.75);
                     color: white;
                 }
-                &::after {
-                    content: "";
-                    display: none;
-                    position: absolute;
-                    inset: 0;
-                    border-radius: 1em;
-                    background-color: rgba(0, 0, 0, 0.75);
-                    pointer-events: none;
-                }
                 &:focus {
-                    &::after {
-                        display: initial;
-                    }
-                    & a {
-                        display: initial;
+                    & span {
+                        transform: translateY(110%);
+                        opacity: 1;
                         z-index: 1;
                     }
                 }
@@ -50,20 +46,44 @@
                     width: 100%;
                     image-rendering: pixelated;
                 }
-                & a {
-                    display: none;
+                & span {
                     position: absolute;
-                    top: 1em;
+                    bottom: 0;
                     left: 1em;
+                    right: 1em;
+                    max-width: calc(100% - 3em);
                     padding: 0.5em;
-                    text-decoration: none;
-                    border: solid 1px white;
-                    border-radius: 0.5em;
-                    color: white;
-                    background-color: rgba(0, 0, 0, 0.75);
+                    border-radius: 1em;
+                    text-align: center;
+                    background-color: hsl(from var(--color-main-bg) h s calc(l + 10) / 0.85);
+                    transform: none;
+                    transition: transform 0.5s, opacity 0.5s;
+                    opacity: 0;
+                    z-index: -1;
                     &:active {
-                        display: initial;
+                        transform: translateY(110%);
+                        opacity: 1;
                     }
+                    & > *:not(:last-child) {
+                        margin-right: 0.5em;
+                    }
+                }
+                & a {
+                    display: inline-block;
+                    width: 2.5rem;
+                    height: 2.5rem;
+                    text-align: center;
+                    align-content: center;
+                    text-decoration: none;
+                    border: solid 1px var(--color-main-fg);
+                    border-radius: 1em;
+                    font-size: 1.5em;
+                    color: white;
+                    background-color: var(--color-main-bg);
+                    color: var(--color-main-fg);
+                }
+                & input {
+                    border: solid 1px var(--color-main-fg);
                 }
             }
         }
@@ -72,6 +92,7 @@
 <body>
     <h1>ANSI Art Collection</h1>
     <div id="container"></div>
+    <script src="./image-to-ansi.js"></script>
     <script>
 function renderAnsi(ansiString) {
     // Performance optimization: Build HTML in an array rather than string concatenation
@@ -451,17 +472,15 @@ document.fonts.ready.then(() => {
                     ctx = cvs.getContext('2d', { willReadFrequently: false });
                     const { grid, rows, cols } = parseAnsi(text);
                     render(grid, rows, cols);
-                    btn_download = document.createElement('a');
-                    btn_download.innerText = 'Download .ans';
-                    btn_download.href = `./ANSI Art/${path}/logo.ans`;
-                    btn_download.download = `${path.replaceAll(' ', '_')}.ans`;
-                    wrapper = document.createElement('div');
-                    wrapper.setAttribute('data-name', path);
-                    wrapper.tabIndex = 0;
 
-                    wrapper.append(cvs)
-                    wrapper.append(btn_download);
-                    container.append(wrapper);
+                    container.insertAdjacentHTML('beforeend', /*html*/`
+                    <div data-name="${path}" tabindex="0">
+                        <span>
+                            <a href="./ANSI Art/${path}/logo.ans" downloa="${path.replaceAll(' ', '_')}.ans">⇩</a>
+                            <input type="number" value="50" min="10" max="100" />
+                        </span>
+                    </div>`);
+                    container.querySelector('div:last-of-type').insertAdjacentElement('afterbegin', cvs)
                 })
             });
         })

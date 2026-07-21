@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANSI Art Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{bg:'#08090d',surface:'#0e1018',panel:'#131620',border:'#1e2233',text:'#c5c8d4',muted:'#565b73',accent:'#00e87b','accent-dim':'#00a858',warm:'#f0a030'},fontFamily:{mono:['"IBM Plex Mono"','monospace'],sans:['"Space Grotesk"','sans-serif']}}}}
+</script>
+<style>
+:root{--bg:#08090d;--surface:#0e1018;--panel:#131620;--border:#1e2233;--text:#c5c8d4;--muted:#565b73;--accent:#00e87b;--accent-dim:#00a858;--warm:#f0a030}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+.checkerboard{background-image:linear-gradient(45deg,#181b28 25%,transparent 25%),linear-gradient(-45deg,#181b28 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#181b28 75%),linear-gradient(-45deg,transparent 75%,#181b28 75%);background-size:14px 14px;background-position:0 0,0 7px,7px -7px,-7px 0;background-color:#10121c}
+.ansi-output{font-family:'IBM Plex Mono',monospace;line-height:1.0;letter-spacing:0px;white-space:pre}
+.ansi-output.block-mode{line-height:1.0}
+.drop-zone{border:2px dashed var(--border);transition:all .25s ease}
+.drop-zone.drag-over{border-color:var(--accent);background:rgba(0,232,123,.04)}
+.drop-zone:hover{border-color:var(--muted)}
+input[type="range"]{-webkit-appearance:none;width:100%;height:4px;background:var(--border);border-radius:2px;outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--accent);border-radius:50%;cursor:pointer;transition:transform .15s}
+input[type="range"]::-webkit-slider-thumb:hover{transform:scale(1.25)}
+input[type="range"]::-moz-range-thumb{width:14px;height:14px;background:var(--accent);border-radius:50%;cursor:pointer;border:none}
+select{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;cursor:pointer;width:100%}
+select:focus{border-color:var(--accent)}
+input[type="color"]{-webkit-appearance:none;width:30px;height:30px;border:2px solid var(--border);border-radius:6px;padding:2px;cursor:pointer;background:transparent;flex-shrink:0}
+input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+input[type="color"]::-webkit-color-swatch{border:none;border-radius:3px}
+.toggle-track{width:34px;height:18px;background:var(--border);border-radius:9px;position:relative;transition:background .2s;display:inline-block;vertical-align:middle;flex-shrink:0;cursor:pointer}
+.toggle-thumb{width:14px;height:14px;background:var(--muted);border-radius:50%;position:absolute;top:2px;left:2px;transition:all .2s}
+input:checked+.toggle-track{background:var(--accent-dim)}
+input:checked+.toggle-track .toggle-thumb{left:18px;background:var(--accent)}
+input.toggle-input{position:absolute;opacity:0;pointer-events:none}
+.btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.section-hdr{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:10px}
+.section-hdr i.chevron{transition:transform .25s;font-size:10px;color:var(--muted)}
+.section-hdr.collapsed i.chevron{transform:rotate(-90deg)}
+.section-body{overflow:hidden;transition:max-height .3s ease,opacity .25s;max-height:600px;opacity:1}
+.section-body.collapsed{max-height:0;opacity:0;margin-bottom:0;overflow:hidden}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--accent);color:var(--accent);padding:10px 18px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;transform:translateY(80px);opacity:0;transition:all .3s ease;z-index:1000;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.glow-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.3;animation:gp 3s ease-in-out infinite}
+@keyframes gp{0%,100%{opacity:.15}50%{opacity:.4}}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:16px;text-align:center;padding:40px}
+.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;font-weight:500}
+.val{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);min-width:32px;text-align:right}
+.info-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);background:rgba(0,232,123,.08);border:1px solid rgba(0,232,123,.15);border-radius:4px;padding:2px 7px;margin-top:6px}
+.scanlines{position:relative}
+.scanlines::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);z-index:2}
+@media(max-width:860px){.main-layout{flex-direction:column!important}.sidebar{width:100%!important;max-height:40vh;overflow-y:auto;border-right:none!important;border-bottom:1px solid var(--border)!important}.preview-area{min-height:50vh}}
+</style>
+</head>
+<body class="flex flex-col h-screen">
+
+<header class="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0" style="background:linear-gradient(180deg,#0c0e16,var(--bg))">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-sm" style="background:var(--accent);color:var(--bg)">A</div>
+    <div>
+      <h1 class="text-sm font-semibold tracking-wide">ANSI Art Converter</h1>
+      <p class="text-xs" style="color:var(--muted)">Half-block &amp; quarter-block detail with transparency</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-xs font-mono hidden sm:inline" style="color:var(--muted)">Ctrl+V to paste</span>
+    <a href="https://ansi-art.com/" target="_blank" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i><span class="hidden sm:inline">ansi-art.com</span></a>
+  </div>
+</header>
+<div class="glow-line"></div>
+
+<div class="flex flex-1 overflow-hidden main-layout">
+
+<aside class="sidebar flex-shrink-0 overflow-y-auto p-4 flex flex-col gap-1" style="width:290px;border-right:1px solid var(--border);background:var(--surface)">
+
+  <!-- Image -->
+  <div>
+    <div class="section-hdr" onclick="toggleSec(this)">
+      <span class="text-xs font-semibold tracking-wider uppercase" style="color:var(--muted)"><i class="fa-solid fa-image mr-2" style="color:var(--accent)"></i>Image</span>
+      <i class="fa-solid fa-chevron-down chevron"></i>
+    </div>
+    <div class="section-body">
+      <div class="drop-zone rounded-lg p-4 text-center cursor-pointer mb-3" id="dropZone" onclick="$('fileInput').click()">
+        <i class="fa-solid fa-cloud-arrow-up text-2xl mb-2" style="color:var(--muted)"></i>
+        <p class="text-xs" style="color:var(--muted)">Drop image or click to upload</p>
+        <p class="text-xs mt-1" style="color:var(--border)">PNG, JPG, GIF, WebP, BMP</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" class="hidden">
+      <button class="btn btn-ghost btn-sm w-full justify-center mb-3" onclick="genSample()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Sample</button>
+      <div id="imgInfo" class="hidden">
+        <img id="thumb" class="w-full rounded-md border border-border mb-2" style="max-height:110px;object-fit:contain;background:var(--bg)">
+        <div class="flex justify-between text-xs font-mono" style="color:var(--muted)"><span id="imgD"></span><span id="imgS"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div>
+    <div class="section-hdr" onclick="toggleSec(this)">
+      <span class="text-xs font-semibold tracking-wider uppercase" style="color:var(--muted)"><i class="fa-solid fa-sliders mr-2" style="color:var(--accent)"></i>Output</span>
+      <i class="fa-solid fa-chevron-down chevron"></i>
+    </div>
+    <div class="section-body flex flex-col gap-3">
+      <div>
+        <div class="flex justify-between items-center mb-1"><span class="label">Width (chars)</span><span class="val" id="wV">100</span></div>
+        <input type="range" id="wS" min="20" max="250" value="100">
+      </div>
+      <div>
+        <div class="label">Character Mode</div>
+        <select id="csS">
+          <option value="halfblocks" selected>Half Blocks (2x detail)</option>
+          <option value="quarterblocks">Quarter Blocks (4x detail)</option>
+          <option value="standard">Standard ( .:-=+*#%@ )</option>
+          <option value="detailed">Detailed (70 chars)</option>
+          <option value="blocks">Shade Blocks ( ░▒▓█ )</option>
+          <option value="minimal">Minimal ( .:oO@ )</option>
+          <option value="binary">Binary ( █ )</option>
+          <option value="custom">Custom...</option>
+        </select>
+        <div id="modeInfo" class="info-badge"><i class="fa-solid fa-circle-info"></i> Uses ▀ with fg+bg per cell for 2x vertical resolution</div>
+      </div>
+      <div id="ccW" class="hidden">
+        <div class="label">Custom Characters</div>
+        <input type="text" id="ccI" value=" .:-=+*#%@" class="w-full px-2 py-1 rounded text-xs font-mono" style="background:var(--bg);border:1px solid var(--border);color:var(--text);outline:none" maxlength="80">
+      </div>
+      <div>
+        <div class="label">Color Mode</div>
+        <select id="cmS">
+          <option value="truecolor" selected>True Color (24-bit)</option>
+          <option value="grayscale">Grayscale</option>
+          <option value="mono">Monochrome</option>
+          <option value="none">No Color</option>
+        </select>
+      </div>
+      <div id="mcW" class="hidden flex items-center gap-2">
+        <span class="label mb-0">Mono Color</span>
+        <input type="color" id="mcI" value="#00e87b">
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="label mb-0">Background</span>
+        <select id="bgS" class="flex-1">
+          <option value="none" selected>None (transparent)</option>
+          <option value="black">Black</option>
+          <option value="white">White</option>
+          <option value="custom">Custom...</option>
+        </select>
+        <input type="color" id="bgC" value="#000000" class="hidden">
+      </div>
+      <div id="arW">
+        <div class="flex justify-between items-center mb-1"><span class="label">Aspect Ratio</span><span class="val" id="arV">0.50</span></div>
+        <input type="range" id="arS" min="25" max="80" value="50">
+      </div>
+    </div>
+  </div>
+
+  <!-- Adjustments -->
+  <div>
+    <div class="section-hdr" onclick="toggleSec(this)">
+      <span class="text-xs font-semibold tracking-wider uppercase" style="color:var(--muted)"><i class="fa-solid fa-sun mr-2" style="color:var(--accent)"></i>Adjustments</span>
+      <i class="fa-solid fa-chevron-down chevron"></i>
+    </div>
+    <div class="section-body flex flex-col gap-3">
+      <div>
+        <div class="flex justify-between items-center mb-1"><span class="label">Brightness</span><span class="val" id="brV">0</span></div>
+        <input type="range" id="brS" min="-100" max="100" value="0">
+      </div>
+      <div>
+        <div class="flex justify-between items-center mb-1"><span class="label">Contrast</span><span class="val" id="ctV">0</span></div>
+        <input type="range" id="ctS" min="-100" max="100" value="0">
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="relative flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="invC" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <span class="text-xs">Invert Brightness</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transparency -->
+  <div>
+    <div class="section-hdr" onclick="toggleSec(this)">
+      <span class="text-xs font-semibold tracking-wider uppercase" style="color:var(--muted)"><i class="fa-solid fa-droplet-slash mr-2" style="color:var(--accent)"></i>Transparency</span>
+      <i class="fa-solid fa-chevron-down chevron"></i>
+    </div>
+    <div class="section-body flex flex-col gap-3">
+      <div>
+        <div class="flex justify-between items-center mb-1"><span class="label">Alpha Threshold</span><span class="val" id="alV">128</span></div>
+        <input type="range" id="alS" min="0" max="255" value="128">
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="label mb-0">Blend BG</span>
+        <input type="color" id="blC" value="#000000">
+        <span class="text-xs" style="color:var(--muted)">semi-transparent</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="relative flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="ckC" class="toggle-input" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <span class="text-xs">Show Checkerboard</span>
+      </div>
+    </div>
+  </div>
+
+</aside>
+
+<div class="preview-area flex-1 flex flex-col overflow-hidden" style="background:var(--bg)">
+  <div class="flex items-center justify-between px-4 py-2 border-b border-border flex-shrink-0 flex-wrap gap-2" style="background:var(--surface)">
+    <div class="flex items-center gap-2">
+      <button class="btn btn-primary btn-sm" id="cpAB" onclick="copyA()" disabled><i class="fa-solid fa-copy"></i> Copy ANSI</button>
+      <button class="btn btn-ghost btn-sm" id="cpHB" onclick="copyH()" disabled><i class="fa-solid fa-code"></i> Copy HTML</button>
+      <button class="btn btn-ghost btn-sm" id="dlB" onclick="dlA()" disabled><i class="fa-solid fa-download"></i> Download .ans</button>
+    </div>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="slC" class="toggle-input">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-xs" style="color:var(--muted)">Scanlines</span>
+      </label>
+      <div class="flex items-center gap-2">
+        <span class="text-xs" style="color:var(--muted)">Size</span>
+        <input type="range" id="fsS" min="3" max="14" value="7" style="width:60px">
+        <span class="val text-xs" id="fsV">7px</span>
+      </div>
+    </div>
+  </div>
+  <div class="flex-1 overflow-auto relative" id="outC">
+    <div class="empty-state" id="emptyS">
+      <div class="drop-zone rounded-2xl p-10 w-full max-w-lg" id="dropZL" onclick="$('fileInput').click()">
+        <i class="fa-solid fa-terminal text-5xl mb-4" style="color:var(--border)"></i>
+        <p class="text-sm font-medium" style="color:var(--muted)">Drop an image here to convert</p>
+        <p class="text-xs mt-2" style="color:var(--border)">Supports PNG with transparency, JPG, GIF, WebP</p>
+      </div>
+    </div>
+    <div id="aWrap" class="hidden w-full h-full"><div id="aOut" class="ansi-output p-3 w-min min-w-full"></div></div>
+  </div>
+  <div class="flex items-center justify-between px-4 py-1.5 border-t border-border flex-shrink-0 text-xs font-mono" style="background:var(--surface);color:var(--muted)">
+    <div class="flex items-center gap-4"><span id="sD">--</span><span id="sC">--</span><span id="sZ">--</span></div>
+    <span id="sM">Ready</span>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="pCvs" class="hidden"></canvas>
+
+<script>
+/* ── Constants ── */
+const CHARS = {
+  standard: ' .:-=+*#%@',
+  detailed: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+  blocks: ' ░▒▓█',
+  minimal: ' .:oO@',
+  binary: ' █',
+  custom: ''
+};
+
+/* Quarter-block character lookup. Bits: 3=TL, 2=TR, 1=BL, 0=BR. 1=fg, 0=bg */
+const QB = {
+  0:' ', 1:'▗', 2:'▖', 3:'▄', 4:'▝', 5:'▐', 6:'▞', 7:'▙',
+  8:'▘', 9:'▚', 10:'▌', 11:'▟', 12:'▀', 13:'▜', 14:'▛', 15:'█'
+};
+
+const MODE_INFO = {
+  halfblocks: 'Uses ▀ with fg+bg per cell — 2x vertical resolution',
+  quarterblocks: 'Uses ▀▄▌▐▘▝▖▗█ with 2×2 pixel groups — maximum detail',
+  standard: 'Maps luminance to character density ramp',
+  detailed: '70-character density ramp for fine gradients',
+  blocks: 'Shade blocks ░▒▓█ for smooth tone steps',
+  minimal: '5-character ramp for bold, chunky look',
+  binary: 'Single block character, pure silhouette',
+  custom: 'Your own character density ramp'
+};
+
+/* ── State ── */
+let img = null, curHtml = '', curAnsi = '', timer = null;
+const $ = id => document.getElementById(id);
+const pCvs = $('pCvs'), pCtx = pCvs.getContext('2d', { willReadFrequently: true });
+
+/* ── Utilities ── */
+function toggleSec(h) { h.classList.toggle('collapsed'); h.nextElementSibling.classList.toggle('collapsed'); }
+function toast(m) { const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function fmtB(b) { return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function hex2rgb(h) { const v=parseInt(h.slice(1),16); return [(v>>16)&255,(v>>8)&255,v&255]; }
+
+function adjPx(r,g,b,br,ct) {
+  const bA=br*1.28; r+=bA; g+=bA; b+=bA;
+  const m=1+ct/100;
+  r=((r/255-.5)*m+.5)*255; g=((g/255-.5)*m+.5)*255; b=((b/255-.5)*m+.5)*255;
+  return [Math.max(0,Math.min(255,Math.round(r))),Math.max(0,Math.min(255,Math.round(g))),Math.max(0,Math.min(255,Math.round(b)))];
+}
+
+function blendA(r,g,b,a,br,bg,bb) {
+  const t=a/255;
+  return [Math.round(r*t+br*(1-t)),Math.round(g*t+bg*(1-t)),Math.round(b*t+bb*(1-t))];
+}
+
+function avgCol(pxArr) {
+  const n=pxArr.length; if(!n) return [0,0,0];
+  let r=0,g=0,b=0;
+  for(const p of pxArr){r+=p[0];g+=p[1];b+=p[2];}
+  return [Math.round(r/n),Math.round(g/n),Math.round(b/n)];
+}
+
+function procCol(r,g,b,mode,mR,mG,mB) {
+  if(mode==='grayscale'){const v=Math.round(.299*r+.587*g+.114*b);return[v,v,v];}
+  if(mode==='mono'){const l=(.299*r+.587*g+.114*b)/255;return[Math.round(mR*l),Math.round(mG*l),Math.round(mB*l)];}
+  if(mode==='none') return null;
+  return [r,g,b];
+}
+
+/* ── Image Loading ── */
+function loadFile(f) {
+  if(!f||!f.type.startsWith('image/')) return;
+  const rd=new FileReader();
+  rd.onload=e=>{const i=new Image();i.onload=()=>{img=i;showInfo(i,f);sched();};i.src=e.target.result;};
+  rd.readAsDataURL(f);
+}
+
+function loadCvs(c) {
+  const i=new Image();i.onload=()=>{img=i;$('imgInfo').classList.remove('hidden');$('thumb').src=c.toDataURL();$('imgD').textContent=c.width+'×'+c.height;$('imgS').textContent='generated';sched();};i.src=c.toDataURL();
+}
+
+function showInfo(i,f) {
+  $('imgInfo').classList.remove('hidden');$('thumb').src=i.src;
+  $('imgD').textContent=i.naturalWidth+'×'+i.naturalHeight;
+  $('imgS').textContent=f?fmtB(f.size):'';
+}
+
+function genSample() {
+  const c=document.createElement('canvas');c.width=320;c.height=220;const x=c.getContext('2d');
+  /* Radial glow */
+  let g=x.createRadialGradient(160,110,0,160,110,150);
+  g.addColorStop(0,'rgba(0,232,123,0.85)');g.addColorStop(0.3,'rgba(0,180,90,0.5)');
+  g.addColorStop(0.6,'rgba(0,100,60,0.2)');g.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=g;x.fillRect(0,0,320,220);
+  /* Star */
+  x.fillStyle='rgba(240,160,48,0.9)';x.beginPath();
+  for(let i=0;i<10;i++){const a=(i*Math.PI/5)-Math.PI/2,r=i%2?22:52;const px=160+Math.cos(a)*r,py=105+Math.sin(a)*r;i?x.lineTo(px,py):x.moveTo(px,py);}
+  x.closePath();x.fill();
+  /* Inner circle */
+  x.fillStyle='rgba(50,120,255,0.55)';x.beginPath();x.arc(160,105,28,0,Math.PI*2);x.fill();
+  /* Ring */
+  x.strokeStyle='rgba(255,255,255,0.65)';x.lineWidth=2.5;x.beginPath();x.arc(160,105,68,0,Math.PI*2);x.stroke();
+  /* Dots */
+  for(let i=0;i<20;i++){const a=(i/20)*Math.PI*2,r=85;x.fillStyle=`rgba(255,255,255,${.15+(i%4)*.15})`;x.beginPath();x.arc(160+Math.cos(a)*r,105+Math.sin(a)*r,2.5,0,Math.PI*2);x.fill();}
+  /* Corner squares with varying alpha */
+  const corners=[[15,15,'rgba(255,50,80,0.45)'],[265,15,'rgba(50,80,255,0.45)'],[15,165,'rgba(255,200,0,0.45)'],[265,165,'rgba(0,255,200,0.45)']];
+  for(const[cx,cy,col] of corners){x.fillStyle=col;x.beginPath();x.roundRect(cx,cy,40,40,6);x.fill();}
+  /* Text */
+  x.font='bold 30px "Space Grotesk",sans-serif';x.textAlign='center';x.textBaseline='middle';
+  x.fillStyle='rgba(255,255,255,0.92)';x.fillText('ANSI',160,102);
+  x.font='15px "Space Grotesk",sans-serif';x.fillStyle='rgba(255,255,255,0.6)';x.fillText('ART',160,124);
+  loadCvs(c);toast('Sample image generated');
+}
+
+/* ── Output Builder (shared by all modes) ── */
+function buildOut(cells, outW, outH) {
+  let hL=[],aL=[],tc=0;
+  for(let y=0;y<outH;y++){
+    let hP=[],aP=[],lFg=null,lBg=null,buf='',bFg=null,bBg=null;
+    for(let x=0;x<outW;x++){
+      const c=cells[y*outW+x];
+      const fk=c.fg?c.fg.join(','):'',bk=c.bg?c.bg.join(','):'',combo=fk+'|'+bk;
+      const ck=bFg?bFg.join(','):'',dk=bBg?bBg.join(','):'',cc=ck+'|'+dk;
+      if(combo!==cc){
+        if(buf){hP.push(fmtSpan(buf,bFg,bBg));buf='';}
+        bFg=c.fg;bBg=c.bg;
+      }
+      buf+=c.ch;
+      let codes=[];
+      if(c.fg!==lFg) codes.push(c.fg?`38;2;${c.fg[0]};${c.fg[1]};${c.fg[2]}`:'39');
+      if(c.bg!==lBg) codes.push(c.bg?`48;2;${c.bg[0]};${c.bg[1]};${c.bg[2]}`:'49');
+      if(codes.length){aP.push('\x1b['+codes.join(';')+'m');lFg=c.fg;lBg=c.bg;}
+      aP.push(c.ch); tc++;
+    }
+    if(buf) hP.push(fmtSpan(buf,bFg,bBg));
+    if(lFg!==null||lBg!==null) aP.push('\x1b[0m');
+    hL.push(hP.join(''));aL.push(aP.join(''));
+  }
+  return {html:hL.join('\n'),ansi:aL.join('\n'),chars:tc};
+}
+
+function fmtSpan(t,fg,bg) {
+  if(!fg&&!bg) return escH(t);
+  let s='';if(fg) s+=`color:rgb(${fg[0]},${fg[1]},${fg[2]});`;if(bg) s+=`background-color:rgb(${bg[0]},${bg[1]},${bg[2]});`;
+  return `<span style="${s}">${escH(t)}</span>`;
+}
+
+/* ── Standard Mode (luminance → char) ── */
+function cvtStd(outW,outH,px,mode,bright,cont,inv,alphaThr,blR,blG,blB,mR,mG,mB,chars,ansiBg) {
+  const cells=new Array(outW*outH);
+  for(let y=0;y<outH;y++){
+    for(let x=0;x<outW;x++){
+      const i=(y*outW+x)*4;
+      let r=px[i],g=px[i+1],b=px[i+2],a=px[i+3];
+      let fg=null,bg=ansiBg,ch=' ';
+      if(a>=alphaThr){
+        if(a<255)[r,g,b]=blendA(r,g,b,a,blR,blG,blB);
+        [r,g,b]=adjPx(r,g,b,bright,cont);
+        let lum=.299*r+.587*g+.114*b;
+        if(inv) lum=255-lum;
+        const ci=Math.max(0,Math.min(chars.length-1,Math.round(Math.pow(Math.max(0,Math.min(1,lum/255)),0.8)*(chars.length-1))));
+        ch=chars[ci];
+        fg=procCol(r,g,b,mode,mR,mG,mB);
+        bg=ansiBg;
+      }
+      cells[y*outW+x]={ch,fg,bg};
+    }
+  }
+  return cells;
+}
+
+/* ── Half-Block Mode (2 pixel rows → 1 char cell with fg+bg) ── */
+function cvtHalf(outW, outH, px, pixW, mode, bright, cont, inv, alphaThr, blR, blG, blB, mR, mG, mB, ansiBg) {
+  const cells=new Array(outW*outH);
+  for(let cy=0;cy<outH;cy++){
+    for(let cx=0;cx<outW;cx++){
+      const tI=((cy*2)*pixW+cx)*4, bI=((cy*2+1)*pixW+cx)*4;
+      let tR=px[tI],tG=px[tI+1],tB=px[tI+2],tA=px[tI+3];
+      let bR=px[bI],bG=px[bI+1],bB=px[bI+2],bA=px[bI+3];
+      const tT=tA<alphaThr, bT=bA<alphaThr;
+      let ch=' ',fg=null,bg=null;
+
+      if(tT&&bT){
+        ch=' ';fg=null;bg=null;
+      } else if(tT){
+        /* Only bottom visible → ▄ lower half block, fg=bottom color */
+        if(bA<255)[bR,bG,bB]=blendA(bR,bG,bB,bA,blR,blG,blB);
+        [bR,bG,bB]=adjPx(bR,bG,bB,bright,cont);
+        if(inv)[bR,bG,bB]=[255-bR,255-bG,255-bB];
+        ch='▄';fg=procCol(bR,bG,bB,mode,mR,mG,mB);bg=null;
+      } else if(bT){
+        /* Only top visible → ▀ upper half block, fg=top color */
+        if(tA<255)[tR,tG,tB]=blendA(tR,tG,tB,tA,blR,blG,blB);
+        [tR,tG,tB]=adjPx(tR,tG,tB,bright,cont);
+        if(inv)[tR,tG,tB]=[255-tR,255-tG,255-tB];
+        ch='▀';fg=procCol(tR,tG,tB,mode,mR,mG,mB);bg=null;
+      } else {
+        /* Both visible → ▀ with fg=top, bg=bottom */
+        if(tA<255)[tR,tG,tB]=blendA(tR,tG,tB,tA,blR,blG,blB);
+        if(bA<255)[bR,bG,bB]=blendA(bR,bG,bB,bA,blR,blG,blB);
+        [tR,tG,tB]=adjPx(tR,tG,tB,bright,cont);
+        [bR,bG,bB]=adjPx(bR,bG,bB,bright,cont);
+        if(inv){[tR,tG,tB]=[255-tR,255-tG,255-tB];[bR,bG,bB]=[255-bR,255-bG,255-bB];}
+        ch='▀';fg=procCol(tR,tG,tB,mode,mR,mG,mB);bg=procCol(bR,bG,bB,mode,mR,mG,mB);
+        /* If color mode is 'none', both are null — still useful for the block pattern in terminals with default colors */
+      }
+      cells[cy*outW+cx]={ch,fg,bg};
+    }
+  }
+  return cells;
+}
+
+/* ── Quarter-Block Mode (2×2 pixels → 1 char cell) ── */
+function cvtQtr(outW, outH, px, pixW, mode, bright, cont, inv, alphaThr, blR, blG, blB, mR, mG, mB, ansiBg) {
+  const cells=new Array(outW*outH);
+  for(let cy=0;cy<outH;cy++){
+    for(let cx=0;cx<outW;cx++){
+      /* Read 2×2 pixel block: TL, TR, BL, BR */
+      const pxs=[];
+      for(let dy=0;dy<2;dy++){
+        for(let dx=0;dx<2;dx++){
+          const pxX=cx*2+dx, pxY=cy*2+dy;
+          const i=(pxY*pixW+pxX)*4;
+          let r=px[i],g=px[i+1],b=px[i+2],a=px[i+3];
+          let filled=a>=alphaThr;
+          if(!filled){r=blR;g=blG;b=blB;}
+          else{if(a<255)[r,g,b]=blendA(r,g,b,a,blR,blG,blB);[r,g,b]=adjPx(r,g,b,bright,cont);if(inv)[r,g,b]=[255-r,255-g,255-b];}
+          pxs.push({r,g,b,filled});
+        }
+      }
+      /* pxs: [TL(0), TR(1), BL(2), BR(3)] */
+      const fCount=pxs.filter(p=>p.filled).length;
+      let ch=' ',fg=null,bg=null;
+
+      if(fCount===0){
+        ch=' ';fg=null;bg=null;
+      } else {
+        let pat;
+        if(fCount===4){
+          /* All opaque: split by luminance into fg/bg groups */
+          const lums=pxs.map(p=>.299*p.r+.587*p.g+.114*p.b);
+          const avg=lums.reduce((a,b)=>a+b,0)/4;
+          pat=lums.map(l=>l>=avg?1:0);
+        } else {
+          /* Some transparent: filled=fg, unfilled=bg */
+          pat=pxs.map(p=>p.filled?1:0);
+        }
+
+        const bits=(pat[0]<<3)|(pat[1]<<2)|(pat[2]<<1)|pat[3];
+        ch=QB[bits]||'█';
+
+        const fgPx=pxs.filter((p,i)=>pat[i]);
+        const bgPx=pxs.filter((p,i)=>!pat[i]);
+        const fgRaw=avgCol(fgPx.map(p=>[p.r,p.g,p.b]));
+        const bgRaw=bgPx.length?avgCol(bgPx.map(p=>[p.r,p.g,p.b])):null;
+
+        fg=procCol(fgRaw[0],fgRaw[1],fgRaw[2],mode,mR,mG,mB);
+        bg=bgRaw?procCol(bgRaw[0],bgRaw[1],bgRaw[2],mode,mR,mG,mB):null;
+
+        /* If both groups ended up same color (e.g. mono mode with similar luminance), force full block */
+        if(fg&&bg&&fg[0]===bg[0]&&fg[1]===bg[1]&&fg[2]===bg[2]){ch='█';bg=null;}
+      }
+      cells[cy*outW+cx]={ch,fg,bg};
+    }
+  }
+  return cells;
+}
+
+/* ── Main Convert Dispatcher ── */
+function convert() {
+  if(!img) return;
+  const outW=Math.max(10,parseInt($('wS').value));
+  const ar=parseInt($('arS').value)/100;
+  const csKey=$('csS').value;
+  const mode=$('cmS').value;
+  const bright=parseInt($('brS').value);
+  const cont=parseInt($('ctS').value);
+  const inv=$('invC').checked;
+  const alphaThr=parseInt($('alS').value);
+  const [blR,blG,blB]=hex2rgb($('blC').value);
+  const [mR,mG,mB]=hex2rgb($('mcI').value);
+
+  /* ANSI background for solid-bg modes */
+  const bgMode=$('bgS').value;
+  let ansiBg=null;
+  if(bgMode==='black') ansiBg=[0,0,0];
+  else if(bgMode==='white') ansiBg=[255,255,255];
+  else if(bgMode==='custom') ansiBg=hex2rgb($('bgC').value);
+
+  const srcW=img.naturalWidth, srcH=img.naturalHeight;
+  const isHalf=csKey==='halfblocks', isQtr=csKey==='quarterblocks';
+  const outH=Math.max(1,Math.round((srcH/srcW)*outW*ar));
+
+  let pixW, pixH, cells;
+
+  if(isHalf){
+    /* 2 pixel rows per character row */
+    pixW=outW; pixH=outH*2;
+    pCvs.width=pixW;pCvs.height=pixH;
+    pCtx.imageSmoothingEnabled=true;pCtx.imageSmoothingQuality='high';
+    pCtx.clearRect(0,0,pixW,pixH);pCtx.drawImage(img,0,0,pixW,pixH);
+    const id=pCtx.getImageData(0,0,pixW,pixH);cells=cvtHalf(outW,outH,id.data,pixW,mode,bright,cont,inv,alphaThr,blR,blG,blB,mR,mG,mB,ansiBg);
+  } else if(isQtr){
+    /* 2×2 pixels per character cell */
+    pixW=outW*2; pixH=outH*2;
+    pCvs.width=pixW;pCvs.height=pixH;
+    pCtx.imageSmoothingEnabled=true;pCtx.imageSmoothingQuality='high';
+    pCtx.clearRect(0,0,pixW,pixH);pCtx.drawImage(img,0,0,pixW,pixH);
+    const id=pCtx.getImageData(0,0,pixW,pixH);cells=cvtQtr(outW,outH,id.data,pixW,mode,bright,cont,inv,alphaThr,blR,blG,blB,mR,mG,mB,ansiBg);
+  } else {
+    /* Standard luminance mode */
+    let chars=csKey==='custom'?$('ccI').value:CHARS[csKey];
+    if(!chars||!chars.length) chars=' .:-=+*#%@';
+    pixW=outW; pixH=outH;
+    pCvs.width=pixW;pCvs.height=pixH;
+    pCtx.imageSmoothingEnabled=true;pCtx.imageSmoothingQuality='high';
+    pCtx.clearRect(0,0,pixW,pixH);pCtx.drawImage(img,0,0,pixW,pixH);
+    const id=pCtx.getImageData(0,0,pixW,pixH);cells=cvtStd(outW,outH,id.data,mode,bright,cont,inv,alphaThr,blR,blG,blB,mR,mG,mB,chars,ansiBg);
+  }
+
+  const res=buildOut(cells,outW,outH);
+  curHtml=res.html; curAnsi=res.ansi;
+
+  $('sD').textContent=outW+'×'+outH+' chars';
+  $('sC').textContent=res.chars+' chars';
+  $('sZ').textContent=fmtB(new Blob([curAnsi]).size);
+  $('sM').textContent=isHalf?'Half-Block 2x':isQtr?'Quarter-Block 4x':mode==='truecolor'?'24-bit Color':mode==='grayscale'?'Grayscale':mode==='mono'?'Monochrome':'Plain Text';
+
+  render();
+  $('cpAB').disabled=false;$('cpHB').disabled=false;$('dlB').disabled=false;
+}
+
+/* ── Render Preview ── */
+function render() {
+  const ck=$('ckC').checked, fs=$('fsS').value+'px', sl=$('slC').checked;
+  const wrap=$('aWrap'), out=$('aOut'), emp=$('emptyS');
+  if(!curHtml){wrap.classList.add('hidden');emp.classList.remove('hidden');return;}
+  emp.classList.add('hidden');wrap.classList.remove('hidden');
+
+  const csKey=$('csS').value;
+  const isBlock=csKey==='halfblocks'||csKey==='quarterblocks';
+  out.classList.toggle('block-mode',isBlock);
+
+  if(ck){out.classList.add('checkerboard');out.style.backgroundColor='';}
+  else{out.classList.remove('checkerboard');
+    const bg=$('bgS').value;
+    if(bg==='black') out.style.backgroundColor='#000';
+    else if(bg==='white') out.style.backgroundColor='#fff';
+    else if(bg==='custom') out.style.backgroundColor=$('bgC').value;
+    else out.style.backgroundColor='';
+  }
+  out.style.fontSize=fs;
+  out.innerHTML=curHtml;
+  wrap.classList.toggle('scanlines',sl);
+}
+
+/* ── Clipboard & Download ── */
+async function copyA(){if(!curAnsi)return;try{await navigator.clipboard.writeText(curAnsi);}catch{const t=document.createElement('textarea');t.value=curAnsi;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}toast('ANSI escape codes copied');}
+async function copyH(){if(!curHtml)return;try{await navigator.clipboard.writeText(curHtml);}catch{const t=document.createElement('textarea');t.value=curHtml;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}toast('HTML copied');}
+function dlA(){if(!curAnsi)return;const b=new Blob([curAnsi],{type:'text/plain'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='ansi-art.ans';a.click();URL.revokeObjectURL(u);toast('Downloaded ansi-art.ans');}
+
+/* ── Debounce ── */
+function sched(){if(timer)clearTimeout(timer);timer=setTimeout(convert,100);}
+
+/* ── UI Mode Updates ── */
+function updModeUI(){
+  const k=$('csS').value;
+  $('ccW').classList.toggle('hidden',k!=='custom');
+  $('modeInfo').textContent=MODE_INFO[k]||'';
+  /* Block modes don't need aspect ratio as much since pixel sampling handles it, but keep it available */
+  sched();
+}
+
+/* ── Init ── */
+(function init(){
+  /* File input */
+  $('fileInput').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
+
+  /* Drag & drop */
+  ['dropZone','dropZL','outC'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+    el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+    el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);});
+  });
+
+  /* Paste */
+  document.addEventListener('paste',e=>{
+    const items=e.clipboardData?.items;if(!items)return;
+    for(const it of items){if(it.type.startsWith('image/')){e.preventDefault();loadFile(it.getAsFile());break;}}
+  });
+
+  /* Sliders */
+  const sm=[['wS','wV',v=>v],['brS','brV',v=>v],['ctS','ctV',v=>v],['alS','alV',v=>v],['arS','arV',v=>(v/100).toFixed(2)],['fsS','fsV',v=>v+'px']];
+  sm.forEach(([s,v,f])=>{$(s).addEventListener('input',()=>{$(v).textContent=f($(s).value);if(s==='fsS'){render();return;}sched();});});
+
+  /* Selects */
+  $('csS').addEventListener('change',updModeUI);
+  $('ccI').addEventListener('input',sched);
+  $('cmS').addEventListener('change',()=>{$('mcW').classList.toggle('hidden',$('cmS').value!=='mono');sched();});
+  $('bgS').addEventListener('change',()=>{$('bgC').classList.toggle('hidden',$('bgS').value!=='custom');sched();});
+  $('bgC').addEventListener('input',sched);
+  $('mcI').addEventListener('input',sched);
+  $('blC').addEventListener('input',sched);
+
+  /* Toggles */
+  $('invC').addEventListener('change',sched);
+  $('ckC').addEventListener('change',render);
+  $('slC').addEventListener('change',render);
+
+  /* Initial mode info */
+  updModeUI();
+})();
+</script>
+</body>
+</html>
