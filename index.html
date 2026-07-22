@@ -9,7 +9,7 @@
     <style>
         body {
             --color-main-fg: light-dark(#000, #fff);
-            --color-main-bg: light-dark(#ddd, #222);
+            --color-main-bg: light-dark(#eee, #222);
             color-scheme: light dark;
             color: var(--color-main-fg);
             background-color: var(--color-main-bg);
@@ -19,11 +19,13 @@
             margin: 0 auto;
             column-width: clamp(10em, 22vw, 15em);
             & div {
+                --color-art-bg: #000;
+                --color-art-fg: #fff;
                 position: relative;
                 padding: 1em;
                 margin-bottom: 1em;
                 border-radius: 0.5em;
-                background-color: black;
+                background-color: var(--color-art-bg);
                 &::before {
                     content: attr(data-name);
                     position: absolute;
@@ -32,40 +34,44 @@
                     bottom: 0.5em;
                     padding: 0.25em;
                     text-align: center;
-                    background-color: rgba(0, 0, 0, 0.75);
-                    color: white;
+                    background-color: color(from var(--color-art-bg) srgb r g b / 0.5);
+                    color: var(--color-art-fg);
                 }
-                &:focus {
-                    & span {
-                        transform: translateY(110%);
-                        opacity: 1;
-                        z-index: 1;
-                    }
+                &:focus span {
+                    transform: translateY(110%);
+                    opacity: 1;
+                    z-index: 1;
                 }
                 & canvas {
                     width: 100%;
                     image-rendering: pixelated;
                 }
                 & span {
+                    display: inline-flex;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    gap: 0.5em;
+                    align-items: center;
                     position: absolute;
                     bottom: 0;
-                    left: 1em;
-                    right: 1em;
-                    max-width: calc(100% - 3em);
+                    left: 0;
+                    right: 0;
+                    width: fit-content;
                     padding: 0.5em;
+                    margin: 0 auto;
                     border-radius: 1em;
                     text-align: center;
-                    background-color: hsl(from var(--color-main-bg) h s calc(l + 10) / 0.85);
-                    transform: none;
-                    transition: transform 0.5s, opacity 0.5s;
+                    background-color: hsl(from var(--color-main-bg) h s calc(l + 10) / 0.9);
+                    /* background-color: var(--color-art-bg); */
+                    color: var(--color-art-fg);
+                    transform: scale(0.5);
+                    transition: transform 0.5s, opacity 0.5s, z-index 0.3s;
                     opacity: 0;
                     z-index: -1;
-                    &:active {
+                    &:has(:focus) {
                         transform: translateY(110%);
                         opacity: 1;
-                    }
-                    & > *:not(:last-child) {
-                        margin-right: 0.5em;
+                        z-index: 1;
                     }
                 }
                 & a {
@@ -75,15 +81,21 @@
                     text-align: center;
                     align-content: center;
                     text-decoration: none;
-                    border: solid 1px var(--color-main-fg);
+                    border: solid 2px var(--color-art-fg);
                     border-radius: 1em;
                     font-size: 1.5em;
+                    font-weight: bold;
+                    line-height: 1;
                     color: white;
                     background-color: var(--color-main-bg);
                     color: var(--color-main-fg);
                 }
                 & input {
-                    border: solid 1px var(--color-main-fg);
+                    padding: 0.5em;
+                    border: solid 2px var(--color-art-fg);
+                    border-radius: 1em;
+                    vertical-align: middle;
+                    background-color: var(--color-main-bg);
                 }
             }
         }
@@ -459,29 +471,40 @@ const container = document.getElementById('container');
 let CW = 8, CH = 16;
 let cvs, ctx;
 
+
+async function changeAnsiWidth(name, width) {
+    ansi = await imageToAnsi(`/ANSI Art/${name}/image.png`, parseInt(width), '#000');
+    ansi = ansi.replaceAll('\\x1b', '');
+
+    cvs = document.querySelector(`[data-name="${name}"]`);
+    cvs = cvs.querySelector('canvas');
+    ctx = cvs.getContext('2d', { willReadFrequently: false });
+    const { grid, rows, cols } = parseAnsi(ansi);
+    render(grid, rows, cols);
+}
+
 document.fonts.ready.then(() => {
-    requestAnimationFrame(() => {
+    requestAnimationFrame(async () => {
         fetch('./paths.json')
         .then(r => r.text())
         .then(text => {
-            JSON.parse(text).forEach(path => {
-                fetch(`./ANSI Art/${path}/logo.ans`)
-                .then(r => r.text())
-                .then(text => {
-                    cvs = document.createElement('canvas');
-                    ctx = cvs.getContext('2d', { willReadFrequently: false });
-                    const { grid, rows, cols } = parseAnsi(text);
-                    render(grid, rows, cols);
+            JSON.parse(text).forEach(async path => {
+                ansi = await imageToAnsi(`/ANSI Art/${path}/image.png`, 30, '#000');
+                ansi = ansi.replaceAll('\\x1b', '');
 
-                    container.insertAdjacentHTML('beforeend', /*html*/`
-                    <div data-name="${path}" tabindex="0">
-                        <span>
-                            <a href="./ANSI Art/${path}/logo.ans" downloa="${path.replaceAll(' ', '_')}.ans">⇩</a>
-                            <input type="number" value="50" min="10" max="100" />
-                        </span>
-                    </div>`);
-                    container.querySelector('div:last-of-type').insertAdjacentElement('afterbegin', cvs)
-                })
+                cvs = document.createElement('canvas');
+                ctx = cvs.getContext('2d', { willReadFrequently: false });
+                const { grid, rows, cols } = parseAnsi(ansi);
+                render(grid, rows, cols);
+
+                container.insertAdjacentHTML('beforeend', /*html*/`
+                <div data-name="${path}" tabindex="0">
+                    <span>
+                        <a href="./ANSI Art/${path}/logo.ans" download="${path.replaceAll(' ', '_')}.ans">⇩</a>
+                        <input type="range" value="30" min="10" max="100" onchange="changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
+                    </span>
+                </div>`);
+                container.querySelector('div:last-of-type').insertAdjacentElement('afterbegin', cvs);
             });
         })
     })
