@@ -473,7 +473,7 @@ let cvs, ctx;
 
 
 async function changeAnsiWidth(name, width) {
-    ansi = await imageToAnsi(`/ANSI Art/${name}/image.png`, parseInt(width), '#000');
+    ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), '#000');
     ansi = ansi.replaceAll('\\x1b', '');
 
     cvs = document.querySelector(`[data-name="${name}"]`);
