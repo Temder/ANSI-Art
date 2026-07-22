@@ -489,7 +489,7 @@ document.fonts.ready.then(() => {
         .then(r => r.text())
         .then(text => {
             JSON.parse(text).forEach(async path => {
-                ansi = await imageToAnsi(`/ANSI Art/${path}/image.png`, 30, '#000');
+                ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, 30, '#000');
                 ansi = ansi.replaceAll('\\x1b', '');
 
                 cvs = document.createElement('canvas');
