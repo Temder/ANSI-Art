@@ -10,21 +10,28 @@
         body {
             --color-main-fg: light-dark(#000, #fff);
             --color-main-bg: light-dark(#eee, #222);
+            --svg-menu: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%203%209%22%3E%3Cpath%20d%3D%22m1.5.5a1%201%200%20000%202%201%201%200%20000-2m0%203a1%201%200%20000%202%201%201%200%20000-2m0%203a1%201%200%20000%202%201%201%200%20000-2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
+            --svg-copy: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%208%209%22%3E%3Cpath%20d%3D%22m.5%207.5a1%201%200%20001%201h3a1%201%200%20001-1V3a1%201%200%2000-1-1h-3a1%201%200%2000-1%201zm5-.5h1a1%201%200%20001-1V1.5a1%201%200%2000-1-1h-3a1%201%200%2000-1%201V2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
+            --svg-download: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200.25%207%206.75%22%3E%3Cpath%20d%3D%22M3.5.5V5M2%203.5%203.5%205%205%203.5M.5%204.5V5.5A1%201%200%20001.5%206.5H5.5A1%201%200%20006.5%205.5V4.5%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
+            --svg-brightness-filter: none;
             color-scheme: light dark;
             color: var(--color-main-fg);
             background-color: var(--color-main-bg);
+            @media (prefers-color-scheme: light) {
+                --svg-brightness-filter: brightness(0);
+            }
         }
         #container {
             width: 75vw;
             margin: 0 auto;
             column-width: clamp(10em, 22vw, 15em);
-            & div {
+            & > div {
                 --color-art-bg: #000;
                 --color-art-fg: #fff;
                 position: relative;
                 padding: 1em;
                 margin-bottom: 1em;
-                border-radius: 0.5em;
+                border-radius: 1em;
                 background-color: var(--color-art-bg);
                 &::before {
                     content: attr(data-name);
@@ -33,6 +40,7 @@
                     left: 0;
                     bottom: 0.5em;
                     padding: 0.25em;
+                    border-radius: 1em;
                     text-align: center;
                     background-color: color(from var(--color-art-bg) srgb r g b / 0.5);
                     color: var(--color-art-fg);
@@ -46,7 +54,37 @@
                     width: 100%;
                     image-rendering: pixelated;
                 }
-                & span {
+                & > div {
+                    position: absolute;
+                    top: 0.5em;
+                    left: calc(100% - 2.5em);
+                    width: fit-content;
+                    white-space: nowrap;
+                    background: no-repeat left center/2em var(--svg-copy);
+                    cursor: pointer;
+                    &:last-of-type {
+                        top: 3.5em;
+                        background-image: var(--svg-download);
+                    }
+                    & > a {
+                        font-size: 2em;
+                        opacity: 0;
+                        pointer-events: none;
+                    }
+                    &:focus {
+                        height: auto;
+                        aspect-ratio: initial;
+                        background: none;
+                        aspect-ratio: initial;
+                        background-color: #444;
+                        z-index: 1;
+                        & > a {
+                            opacity: 1;
+                            pointer-events: all;
+                        }
+                    }
+                }
+                & > span {
                     display: inline-flex;
                     flex-wrap: wrap;
                     justify-content: center;
@@ -62,7 +100,6 @@
                     border-radius: 1em;
                     text-align: center;
                     background-color: hsl(from var(--color-main-bg) h s calc(l + 10) / 0.9);
-                    /* background-color: var(--color-art-bg); */
                     color: var(--color-art-fg);
                     transform: scale(0.5);
                     transition: transform 0.5s, opacity 0.5s, z-index 0.3s;
@@ -73,29 +110,17 @@
                         opacity: 1;
                         z-index: 1;
                     }
-                }
-                & a {
-                    display: inline-block;
-                    width: 2.5rem;
-                    height: 2.5rem;
-                    text-align: center;
-                    align-content: center;
-                    text-decoration: none;
-                    border: solid 2px var(--color-art-fg);
-                    border-radius: 1em;
-                    font-size: 1.5em;
-                    font-weight: bold;
-                    line-height: 1;
-                    color: white;
-                    background-color: var(--color-main-bg);
-                    color: var(--color-main-fg);
-                }
-                & input {
-                    padding: 0.5em;
-                    border: solid 2px var(--color-art-fg);
-                    border-radius: 1em;
-                    vertical-align: middle;
-                    background-color: var(--color-main-bg);
+                    &::before {
+                        content: attr(data-width);
+                    }
+                    & > input {
+                        width: 50%;
+                        padding: 0.5em;
+                        border: solid 2px var(--color-art-fg);
+                        border-radius: 1em;
+                        vertical-align: middle;
+                        background-color: var(--color-main-bg);
+                    }
                 }
             }
         }
@@ -476,8 +501,7 @@ async function changeAnsiWidth(name, width) {
     ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), '#000');
     ansi = ansi.replaceAll('\\x1b', '');
 
-    cvs = document.querySelector(`[data-name="${name}"]`);
-    cvs = cvs.querySelector('canvas');
+    cvs = document.querySelector(`[data-name="${name}"] canvas`);
     ctx = cvs.getContext('2d', { willReadFrequently: false });
     const { grid, rows, cols } = parseAnsi(ansi);
     render(grid, rows, cols);
@@ -489,7 +513,8 @@ document.fonts.ready.then(() => {
         .then(r => r.text())
         .then(text => {
             JSON.parse(text).forEach(async path => {
-                ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, 30, '#000');
+                let initial_width = 30;
+                ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width, '#000');
                 ansi = ansi.replaceAll('\\x1b', '');
 
                 cvs = document.createElement('canvas');
@@ -498,13 +523,14 @@ document.fonts.ready.then(() => {
                 render(grid, rows, cols);
 
                 container.insertAdjacentHTML('beforeend', /*html*/`
-                <div data-name="${path}" tabindex="0">
-                    <span>
-                        <a href="./ANSI Art/${path}/logo.ans" download="${path.replaceAll(' ', '_')}.ans">⇩</a>
-                        <input type="range" value="30" min="10" max="100" onchange="changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
+                <div data-name="${path}" tabindex="-1">
+                    <div tabindex="-1"><a>🖼</a><a>📄</a><a>💻</a></div>
+                    <div tabindex="-1"><a>🖼</a><a>📄</a><a>💻</a></div>
+                    <span data-width="${initial_width}">
+                        <input type="range" value="30" min="15" max="70" onchange="this.parentElement.setAttribute('data-width', this.value); changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
                     </span>
                 </div>`);
-                container.querySelector('div:last-of-type').insertAdjacentElement('afterbegin', cvs);
+                document.querySelector('#container > div:last-of-type').insertAdjacentElement('afterbegin', cvs);
             });
         })
     })
