@@ -45,8 +45,8 @@
                     background-color: color(from var(--color-art-bg) srgb r g b / 0.5);
                     color: var(--color-art-fg);
                 }
-                &:focus span {
-                    transform: translateY(110%);
+                &:hover > span {
+                    transform: translateY(calc(100% + 0.5em));
                     opacity: 1;
                     z-index: 1;
                 }
@@ -55,30 +55,44 @@
                     image-rendering: pixelated;
                 }
                 & > div {
+                    display: flex;
+                    gap: 0.25em;
+                    justify-content: end;
+                    align-items: start;
                     position: absolute;
                     top: 0.5em;
-                    left: calc(100% - 2.5em);
-                    width: fit-content;
-                    white-space: nowrap;
-                    background: no-repeat left center/2em var(--svg-copy);
+                    right: 0;
+                    width: 20%;
+                    aspect-ratio: 1;
                     cursor: pointer;
-                    &:last-of-type {
-                        top: 3.5em;
-                        background-image: var(--svg-download);
+                    pointer-events: none;
+                    overflow-x: visible;
+                    &::after {
+                        content: "";
+                        display: block;
+                        height: 100%;
+                        aspect-ratio: 1;
+                        left: 0;
+                        background: no-repeat center/70% var(--svg-copy);
+                        pointer-events: all;
                     }
-                    & > a {
-                        font-size: 2em;
+                    &:last-of-type {
+                        top: calc(20% + 0.5em);
+                        &::after {
+                            background-image: var(--svg-download);
+                        }
+                    }
+                    & > span {
+                        height: 100%;
+                        aspect-ratio: 1;
+                        background: no-repeat center/70% var(--svg-copy);
                         opacity: 0;
                         pointer-events: none;
+                        transition: opacity 0.5s;
                     }
-                    &:focus {
-                        height: auto;
-                        aspect-ratio: initial;
-                        background: none;
-                        aspect-ratio: initial;
-                        background-color: #444;
+                    &:focus, &:focus-within {
                         z-index: 1;
-                        & > a {
+                        & > span {
                             opacity: 1;
                             pointer-events: all;
                         }
@@ -95,7 +109,7 @@
                     left: 0;
                     right: 0;
                     width: fit-content;
-                    padding: 0.5em;
+                    padding-bottom: 0.6em;
                     margin: 0 auto;
                     border-radius: 1em;
                     text-align: center;
@@ -105,13 +119,16 @@
                     transition: transform 0.5s, opacity 0.5s, z-index 0.3s;
                     opacity: 0;
                     z-index: -1;
-                    &:has(:focus) {
-                        transform: translateY(110%);
-                        opacity: 1;
-                        z-index: 1;
-                    }
                     &::before {
                         content: attr(data-width);
+                    }
+                    &::after {
+                        content: "";
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: -1em;
+                        height: 1em;
                     }
                     & > input {
                         width: 50%;
@@ -129,6 +146,13 @@
 <body>
     <h1>ANSI Art Collection</h1>
     <div id="container"></div>
+    <datalist id="art-width">
+        <option value="15" label="15"></option>
+        <option value="30" label="30"></option>
+        <option value="45" label="45"></option>
+        <option value="60" label="60"></option>
+        <option value="75" label="75"></option>
+    </datalist>
     <script src="./image-to-ansi.js"></script>
     <script>
 function renderAnsi(ansiString) {
@@ -524,10 +548,10 @@ document.fonts.ready.then(() => {
 
                 container.insertAdjacentHTML('beforeend', /*html*/`
                 <div data-name="${path}" tabindex="-1">
-                    <div tabindex="-1"><a>🖼</a><a>📄</a><a>💻</a></div>
-                    <div tabindex="-1"><a>🖼</a><a>📄</a><a>💻</a></div>
+                    <div tabindex="-1"><span></span><span></span><span></span></div>
+                    <div tabindex="-1"><span></span><span></span><span></span></div>
                     <span data-width="${initial_width}">
-                        <input type="range" value="30" min="15" max="70" onchange="this.parentElement.setAttribute('data-width', this.value); changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
+                        <input type="range" list="art-width" value="30" min="15" max="75" oninput="this.parentElement.setAttribute('data-width', this.value);" onchange="changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
                     </span>
                 </div>`);
                 document.querySelector('#container > div:last-of-type').insertAdjacentElement('afterbegin', cvs);
