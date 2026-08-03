@@ -9,23 +9,89 @@
     <style>
         body {
             --color-main-fg: light-dark(#000, #fff);
-            --color-main-bg: light-dark(#eee, #222);
+            --color-main-bg: light-dark(#eee, #333);
+            --color-panel-fg: var(--color-main-fg);
+            --color-panel-bg: light-dark(#fff, #000);
+            --color-accent: AccentColor;
+            --svg-menu: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%203%209%22%3E%3Cpath%20d%3D%22m1.5.5a1%201%200%20000%202%201%201%200%20000-2m0%203a1%201%200%20000%202%201%201%200%20000-2m0%203a1%201%200%20000%202%201%201%200%20000-2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
             --svg-copy: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%208%209%22%3E%3Cpath%20d%3D%22m.5%207.5a1%201%200%20001%201h3a1%201%200%20001-1V3a1%201%200%2000-1-1h-3a1%201%200%2000-1%201zm5-.5h1a1%201%200%20001-1V1.5a1%201%200%2000-1-1h-3a1%201%200%2000-1%201V2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
             --svg-download: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200.25%207%206.75%22%3E%3Cpath%20d%3D%22M3.5.5V5M2%203.5%203.5%205%205%203.5M.5%204.5V5.5A1%201%200%20001.5%206.5H5.5A1%201%200%20006.5%205.5V4.5%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
             --svg-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.25%200.25%209.5%209.5%22%3E%3Cpath%20d%3D%22M1%202Q1%201%202%201H8Q9%201%209%202V8Q9%209%208%209H2Q1%209%201%208ZM1%208%203%205Q3.5%204.25%204%205L5%206.5Q5.5%207.25%206%206.5L6.5%205.75Q7%205%207.5%205.75L9%208M6%202A1%201%200%20006%204%201%201%200%20006%202%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
             --svg-ansi: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-0.25%20-0.55%208.6%205.8%22%3E%3Cpath%20d%3D%22M.5%204.5V.5H2V4.5M.5%202.5H2M3%204.5V.2L4.5%204.5V.2M7%20.6H5.5V2.5H6.5V4.1H5.1M7.6.2V4.5%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
             --svg-code: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%221.5%201%208%208%22%3E%3Cpath%20d%3D%22M4%203%202.5%204.5Q2%205%202.5%205.5L4%207M5%208.5%206%201.5M7%203%208.5%204.5Q9%205%208.5%205.5L7%207%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
             --svg-brightness-filter: none;
+            margin: 0;
             color-scheme: light dark;
             color: var(--color-main-fg);
             background-color: var(--color-main-bg);
+            font-family: sans-serif;
             @media (prefers-color-scheme: light) {
                 --svg-brightness-filter: brightness(0);
             }
+            &:has(#nav-creator:checked) #section-creator,
+            &:has(#nav-collection:checked) #section-collection {
+                display: flex;
+            }
         }
-        #container {
-            width: 75vw;
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0.5em;
+            margin: 2px auto 0;
+            padding: 0.75em;
+            width: fit-content;
+            min-height: 3em;
+            border-radius: 1em;
+            justify-content: center;
+            background-color: var(--color-panel-bg);
+            z-index: 10;
+            &:has(:focus-visible) {
+                outline: solid 2px var(--color-accent);
+            }
+            & input {
+                width: 0;
+                margin: 0;
+                opacity: 0;
+                pointer-events: none;
+                &:checked + label {
+                    background-color: var(--color-main-bg);
+                }
+            }
+            & label {
+                display: inline-block;
+                height: 3em;
+                padding: 0 0.5em;
+                border-radius: 0.5em;
+                align-content: center;
+                white-space: nowrap;
+                cursor: pointer;
+                &:not(:last-child) {
+                    margin-right: 0.75em;
+                }
+            }
+        }
+
+        section {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.5em;
             margin: 0 auto;
+            width: 75vw;
+        }
+        #section-creator {
+            & span:has(+ canvas[width]) {
+                display: none;
+            }
+            & canvas {
+                width: 50%;
+                aspect-ratio: 1;
+                border: solid 1px var(--color-main-fg);
+            }
+        }
+        #art-container {
+            width: 100%;
             column-width: clamp(10em, 22vw, 15em);
             & > div {
                 --color-art-bg: #000;
@@ -47,7 +113,7 @@
                     background: linear-gradient(#0000, var(--color-art-bg) 40%);
                     color: var(--color-art-fg);
                 }
-                &:hover > span, &:focus-within > span {
+                &:hover > span, & span:focus-within {
                     transform: translateY(calc(100% + 0.5em));
                     opacity: 1;
                     z-index: 1;
@@ -88,7 +154,7 @@
                             background-image: var(--svg-download);
                         }
                     }
-                    & > span {
+                    & > a {
                         height: 100%;
                         aspect-ratio: 1;
                         border-radius: 0.5em;
@@ -115,7 +181,7 @@
                     }
                     &:focus, &:focus-within {
                         z-index: 1;
-                        & > span {
+                        & > a {
                             opacity: 1;
                             pointer-events: all;
                         }
@@ -153,6 +219,9 @@
                         top: -1em;
                         height: 1em;
                     }
+                    &:has(:focus-visible) {
+                        outline: solid 2px var(--color-accent);
+                    }
                     & > input {
                         width: 50%;
                         padding: 0.5em;
@@ -160,22 +229,40 @@
                         border-radius: 1em;
                         vertical-align: middle;
                         background-color: var(--color-main-bg);
+                        &:focus-visible {
+                            outline: none;
+                        }
                     }
                 }
             }
         }
+        h1 {
+            width: 100%;
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
-    <h1>ANSI Art Collection</h1>
-    <div id="container"></div>
-    <datalist id="art-width">
-        <option value="15" label="15"></option>
-        <option value="30" label="30"></option>
-        <option value="45" label="45"></option>
-        <option value="60" label="60"></option>
-        <option value="75" label="75"></option>
-    </datalist>
+    <nav>
+        <input type="radio" name="navigation" id="nav-creator" checked><label for="nav-creator">ANSI Art Creator</label>
+        <input type="radio" name="navigation" id="nav-collection"><label for="nav-collection">ANSI Art Collection</label>
+    </nav>
+    <section id="section-creator">
+        <h1>ANSI Art Creator</h1>
+        <span>Choose an image to convert it to ANSI</span>
+        <canvas></canvas>
+    </section>
+    <section id="section-collection">
+        <h1>ANSI Art Collection</h1>
+        <div id="art-container"></div>
+        <datalist id="art-width">
+            <option value="15" label="15"></option>
+            <option value="30" label="30"></option>
+            <option value="45" label="45"></option>
+            <option value="60" label="60"></option>
+            <option value="75" label="75"></option>
+        </datalist>
+    </section>
     <script src="./image-to-ansi.js"></script>
     <script>
 function renderAnsi(ansiString) {
@@ -427,7 +514,7 @@ function render(grid, rows, cols) {
     const W = cols * CW, H = rows * CH;
     cvs.width = W; cvs.height = H;
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#00000000';
     ctx.fillRect(0, 0, W, H);
     ctx.font = CH + 'px "Fira Code","Courier New",monospace';
     ctx.textBaseline = 'top';
@@ -443,26 +530,16 @@ function render(grid, rows, cols) {
 
             /* Background */
             ctx.fillStyle = 'rgb(' + cell.bg.r + ',' + cell.bg.g + ',' + cell.bg.b + ')';
-            // if (cell.bg.r <= 10 && cell.bg.g <= 10 && cell.bg.b <= 10) {
-            //     ctx.fillStyle = 'rgba(0,0,0,0)';
-            // } else {
+            // if (cell.bg.r != 0 && cell.bg.g != 0 && cell.bg.b != 0) {
                 ctx.fillRect(x, y, CW, CH);
             // }
 
             /* Foreground character */
-            // if (cell.fg.r <= 10 && cell.fg.g <= 10 && cell.fg.b <= 10) {
-            //     ctx.fillStyle = 'rgba(0,0,0,0)';
-            //     continue;
-            // }
             const bt = BLOCKS[cell.ch];
             if (bt) {
                 drawBlock(x, y, bt, cell.fg);
             } else if (cell.ch !== ' ') {
-                // if (cell.fg.r <= 10 && cell.fg.g <= 10 && cell.fg.b <= 10) {
-                //     ctx.fillStyle = 'rgba(0,0,0,0)';
-                // } else {
-                    ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
-                // }
+                ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
                 ctx.fillText(cell.ch, x + CW / 2, y);
             }
         }
@@ -538,11 +615,15 @@ const U2C1252 = {
     0x017E:0x9E,0x0178:0x9F
 };
 
-const container = document.getElementById('container');
+const container = document.getElementById('art-container');
+const creatorCanvas = document.getElementById('section-creator');
 
 let CW = 8, CH = 16;
 let cvs, ctx;
 
+async function createAnsi(image, width) {
+    ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), '#000');
+}
 
 async function changeAnsiWidth(name, width) {
     ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), '#000');
@@ -554,6 +635,33 @@ async function changeAnsiWidth(name, width) {
     render(grid, rows, cols);
 }
 
+function downloadAs(type, name) {
+    let canvas = document.querySelector(`[data-name="${name}"] canvas`);
+    switch (type) {
+        case 'image':
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}.png`;
+                a.click();
+                a.remove();
+
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+            break;
+        case 'ansi':
+            
+            break;
+        case 'code':
+            
+            break;
+        default:
+            break;
+    }
+}
+
 document.fonts.ready.then(() => {
     requestAnimationFrame(async () => {
         fetch('./paths.json')
@@ -561,7 +669,7 @@ document.fonts.ready.then(() => {
         .then(text => {
             JSON.parse(text).forEach(async path => {
                 let initial_width = 30;
-                ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width, '#000');
+                ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width, 'transparent');
                 ansi = ansi.replaceAll('\\x1b', '');
 
                 cvs = document.createElement('canvas');
@@ -571,13 +679,13 @@ document.fonts.ready.then(() => {
 
                 container.insertAdjacentHTML('beforeend', /*html*/`
                 <div data-name="${path}" tabindex="-1">
-                    <div tabindex="-1"><span tabindex="0"></span><span tabindex="0"></span><span tabindex="0"></span></div>
-                    <div tabindex="-1"><span tabindex="0"></span><span tabindex="0"></span><span tabindex="0"></span></div>
+                    <div tabindex="-1"><a></a><a></a><a></a></div>
+                    <div tabindex="-1"><a href="javascript:downloadAs('image', '${path}')"></a><a></a><a></a></div>
                     <span data-width="${initial_width}">
                         <input type="range" list="art-width" value="30" min="15" max="75" oninput="this.parentElement.setAttribute('data-width', this.value);" onchange="changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
                     </span>
                 </div>`);
-                document.querySelector('#container > div:last-of-type').insertAdjacentElement('afterbegin', cvs);
+                container.querySelector('& > div:last-of-type').insertAdjacentElement('afterbegin', cvs);
             });
         })
     })
