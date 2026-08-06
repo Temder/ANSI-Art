@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <title>ANSI Art Collection</title>
     <style>
+@keyframes slide-up {
+    from {
+        transform: translateY(calc(100% + 1em));
+    }
+    to {
+        transform: none;
+    }
+}
+@keyframes move-up {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: none;
+    }
+}
 html {
     height: 100vh;
 }
@@ -61,6 +77,7 @@ nav {
         content: "";
         position: absolute;
         inset: -1em;
+        z-index: -1;
     }
     &:hover {
         transform: none !important;
@@ -102,97 +119,6 @@ section {
 h1 {
     width: 100%;
     margin: 0.5em 0 0;
-}
-#section-creator {
-    & input[type="file"] {
-        opacity: 0;
-        width: 0;
-        height: 0;
-        &:focus-visible + div label {
-            outline: solid 0.2em var(--color-accent);
-            outline-offset: -2px;
-        }
-        &:has(+ div canvas[width]):focus-visible + div label {
-            background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
-            color: var(--color-main-fg);
-        }
-        & + div label {
-            position-anchor: --anchor-canvas;
-            position: absolute;
-            top: anchor(top);
-            left: anchor(left);
-            right: anchor(right);
-            bottom: anchor(bottom);
-            padding: 0.25em;
-            border-radius: 0.5em;
-            align-content: center;
-            text-align: center;
-            cursor: pointer;
-            z-index: 1;
-            transition: background-color 0.25s, color 0.25s;
-            &.drag-over {
-                outline: solid 0.2em var(--color-accent);
-                outline-offset: -1px;
-            }
-            &:has(+ canvas[width]) {
-                color: transparent;
-                &:hover {
-                    background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
-                    color: var(--color-main-fg);
-                }
-            }
-        }
-    }
-    & div {
-        width: 100%;
-        text-align: center;
-        &:has(canvas[width]) {
-            column-width: clamp(15em, 20vw, 100vw);
-            width: 75%;
-        }
-        & canvas {
-            anchor-name: --anchor-canvas;
-            image-rendering: pixelated;
-            position: relative;
-            width: 50%;
-            aspect-ratio: 1;
-            min-width: 15em;
-            border: solid 1px var(--color-main-fg);
-            border-radius: 0.5em;
-            &[width] {
-                width: 100%;
-                aspect-ratio: initial;
-                min-width: 0;
-                & ~ .control-width {
-                    display: inline-block;
-                    text-align: center;
-                }
-            }
-        }
-        & .control-width {
-            display: none;
-            padding: 0 0.5em;
-            border-radius: 0.5em;
-            white-space: nowrap;
-            &::before {
-                content: attr(data-width);
-            }
-            &:has(:focus-visible) {
-                outline: solid 0.25em var(--color-accent);
-            }
-            & > input {
-                max-width: calc(100% - 3em);
-                padding: 0.5em;
-                border: solid 0.25em var(--color-art-fg);
-                border-radius: 1em;
-                vertical-align: middle;
-                background-color: var(--color-main-bg);
-                &:focus-visible {
-                    outline: none;
-                }
-            }
-        }
-    }
 }
 #art-container {
     width: 100%;
@@ -343,6 +269,145 @@ h1 {
         }
     }
 }
+#messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    align-items: end;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding: 1em;
+    span {
+        position: relative;
+        width: fit-content;
+        padding: 0.5em;
+        border: solid 2px light-dark(hsl(from var(--color-message-bg) h s 50%), var(--color-message-bg));
+        border-radius: 0.5em;
+        background-color: light-dark(var(--color-message-bg), hsl(from var(--color-message-bg) h 90% 50%));
+        pointer-events: none;
+        &.new {
+            animation: slide-up 0.5s;
+        }
+        &:has(~ .new) {
+            animation: move-up 0.5s;
+        }
+        &::before {
+            content: "❌";
+            position: absolute;
+            top: -1rem;
+            right: -1rem;
+            width: 2rem;
+            height: 2rem;
+            text-align: center;
+            align-content: center;
+            font-size: 1.25em;
+            line-height: 1;
+            pointer-events: all;
+            cursor: pointer;
+        }
+    }
+    .info {
+        --color-message-bg: hsl(214, 100%, 93%);
+    }
+    .warning {
+        --color-message-bg: hsl(34, 100%, 93%);
+    }
+    .error {
+        --color-message-bg: hsl(0, 100%, 93%);
+    }
+}
+#section-creator {
+    & input[type="file"] {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        &:focus-visible + div label {
+            outline: solid 0.2em var(--color-accent);
+            outline-offset: -2px;
+        }
+        &:has(+ div canvas[width]):focus-visible + div label {
+            background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
+            color: var(--color-main-fg);
+        }
+        & + div label {
+            position-anchor: --anchor-canvas;
+            position: absolute;
+            top: anchor(top);
+            left: anchor(left);
+            right: anchor(right);
+            bottom: anchor(bottom);
+            padding: 0.25em;
+            border-radius: 0.5em;
+            align-content: center;
+            text-align: center;
+            cursor: pointer;
+            z-index: 1;
+            transition: background-color 0.25s, color 0.25s;
+            &.drag-over {
+                outline: solid 0.2em var(--color-accent);
+                outline-offset: -1px;
+            }
+            &:has(+ canvas[width]) {
+                color: transparent;
+                &:hover {
+                    background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
+                    color: var(--color-main-fg);
+                }
+            }
+        }
+    }
+    & div {
+        width: 100%;
+        text-align: center;
+        &:has(canvas[width]:not([data-opened=".ans"])) {
+            column-width: clamp(15em, 20vw, 100vw);
+            width: 75%;
+        }
+        & canvas {
+            anchor-name: --anchor-canvas;
+            image-rendering: pixelated;
+            position: relative;
+            width: 50%;
+            aspect-ratio: 1;
+            min-width: 15em;
+            border: solid 2px var(--color-main-fg);
+            border-radius: 0.5em;
+            &[width] {
+                width: 100%;
+                aspect-ratio: initial;
+                min-width: 0;
+                &:not([data-opened=".ans"]) ~ .control-width {
+                    display: inline-block;
+                    text-align: center;
+                }
+            }
+        }
+        & .control-width {
+            display: none;
+            padding: 0 0.5em;
+            border-radius: 0.5em;
+            white-space: nowrap;
+            &::before {
+                content: attr(data-width);
+            }
+            &:has(:focus-visible) {
+                outline: solid 0.25em var(--color-accent);
+            }
+            & > input {
+                max-width: calc(100% - 3em);
+                padding: 0.5em;
+                border: solid 0.25em var(--color-art-fg);
+                border-radius: 1em;
+                vertical-align: middle;
+                background-color: var(--color-main-bg);
+                &:focus-visible {
+                    outline: none;
+                }
+            }
+        }
+    }
+}
 .container {
     display: flex;
 }
@@ -358,9 +423,10 @@ h1 {
   ondragleave="this.classList.remove('drag-over')"
   ondrop="this.classList.remove('drag-over')">
     <nav>
-        <input type="radio" name="navigation" id="nav-creator" checked><label class="noselect" for="nav-creator">ANSI Art Creator</label>
+        <input type="radio" name="navigation" id="nav-creator" checked><label class="noselect" for="nav-creator">ANSI Art Creator/Viewer</label>
         <input type="radio" name="navigation" id="nav-collection"><label class="noselect" for="nav-collection">ANSI Art Collection</label>
     </nav>
+    <div id="messages"></div>
     <datalist id="art-width">
         <option value="15" label="15"></option>
         <option value="30" label="30"></option>
@@ -369,16 +435,16 @@ h1 {
         <option value="75" label="75"></option>
     </datalist>
     <section id="section-creator">
-        <h1>ANSI Art Creator</h1>
-        <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg" />
+        <h1>ANSI Art Creator/Viewer</h1>
+        <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg, .ans" />
         <div>
             <label
               for="image-input" class="drop-zone noselect"
               ondragenter="event.preventDefault(); this.classList.add('drag-over')"
               ondragover="event.preventDefault(); this.classList.add('drag-over')"
               ondragleave="this.classList.remove('drag-over')"
-              ondrop="event.preventDefault(); this.classList.remove('drag-over'); const file = event.dataTransfer?.files?.[0]; if (file && file.type.startsWith('image/')) createAnsi(file, 30)"
-            >Click to choose an image for conversion or drag and drop it here</label>
+              ondrop="event.preventDefault(); this.classList.remove('drag-over'); createAnsi(event.dataTransfer?.files?.[0], 30)"
+            >Click to choose an image for conversion or drag and drop it here. ANSI files can be viewed.</label>
             <canvas></canvas>
             <span data-width="30" class="control-width">
                 <input
@@ -639,7 +705,7 @@ function parseAnsi(text) {
     return { grid, rows: grid.length, cols: maxC };
 }
 
-function render(grid, rows, cols) {
+function render(cvs, ctx, grid, rows, cols) {
     let curGrid = grid; let curRows = rows; let curCols = cols;
     const W = cols * CW, H = rows * CH;
     cvs.width = W; cvs.height = H;
@@ -667,7 +733,7 @@ function render(grid, rows, cols) {
             /* Foreground character */
             const bt = BLOCKS[cell.ch];
             if (bt) {
-                drawBlock(x, y, bt, cell.fg);
+                drawBlock(ctx, x, y, bt, cell.fg);
             } else if (cell.ch !== ' ') {
                 ctx.fillStyle = 'rgb(' + cell.fg.r + ',' + cell.fg.g + ',' + cell.fg.b + ')';
                 ctx.fillText(cell.ch, x + CW / 2, y);
@@ -676,7 +742,7 @@ function render(grid, rows, cols) {
     }
 }
 
-function drawBlock(x, y, type, fg) {
+function drawBlock(ctx, x, y, type, fg) {
     const c = 'rgb(' + fg.r + ',' + fg.g + ',' + fg.b + ')';
     ctx.fillStyle = c;
     const hw = CW >> 1, hh = CH >> 1;
@@ -710,33 +776,43 @@ function drawBlock(x, y, type, fg) {
 async function createAnsi(image, width) {
     document.querySelector('.control-width').setAttribute('data-width', parseInt(width));
     document.querySelector('.control-width input').value = parseInt(width);
-    if (image) {
-        creatorImage = image;
+    let ansi;
+    if (image && image.name.endsWith('.ans')) {
+        creatorCanvas.setAttribute('data-opened', '.ans');
+        ansi = await image.text();
+    } else if (image && image.type == 'image/jpeg') {
+        creatorCanvas.removeAttribute('data-opened');
+        if (image) {
+            creatorImage = image;
+        } else {
+            image = creatorImage;
+        }
+        ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width), '#000');
+        ansi = ansi.replaceAll('\\x1b', '');
     } else {
-        image = creatorImage;
+        displayMessage('warning', 'Only images and .ans files are allowed!');
+        return;
     }
-    let ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width), '#000');
-    ansi = ansi.replaceAll('\\x1b', '');
 
-    cvs = creatorCanvas;
-    ctx = cvs.getContext('2d', { willReadFrequently: false });
+    let cvs = creatorCanvas;
+    let ctx = cvs.getContext('2d', { willReadFrequently: false });
     const { grid, rows, cols } = parseAnsi(ansi);
-    render(grid, rows, cols);
+    render(cvs, ctx, grid, rows, cols);
 }
 
 async function changeAnsiWidth(name, width) {
     let ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), '#000');
     ansi = ansi.replaceAll('\\x1b', '');
 
-    cvs = document.querySelector(`[data-name="${name}"] canvas`);
-    ctx = cvs.getContext('2d', { willReadFrequently: false });
+    let cvs = document.querySelector(`[data-name="${name}"] canvas`);
+    let ctx = cvs.getContext('2d', { willReadFrequently: false });
     const { grid, rows, cols } = parseAnsi(ansi);
-    render(grid, rows, cols);
+    render(cvs, ctx, grid, rows, cols);
 }
 
 async function downloadAs(type, name) {
     let canvas = document.querySelector(`[data-name="${name}"] canvas`);
-    let file_ext = type == 'image' ? 'png' : type == 'ansi' ? 'ansi' : 'sh';
+    let file_ext = type == 'image' ? 'png' : type == 'ansi' ? 'ans' : 'sh';
     let blob;
     if (type === 'image') {
         blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
@@ -780,6 +856,13 @@ async function copyAs(type, name) {
     }
 }
 
+function displayMessage(type, message) {
+    messageContainer.insertAdjacentHTML('beforeend', /*html*/`
+        <span class="${type} new" onclick="this.remove()">${message}</span>
+    `);
+    setTimeout(() => { messageContainer.children[messageContainer.children.length - 1].classList.remove('new') }, 500);
+}
+
 const BLOCKS = {
     '\u2580': 'upper',   // ▀
     '\u2584': 'lower',   // ▄
@@ -821,9 +904,9 @@ const U2C1252 = {
 
 const container = document.getElementById('art-container');
 const creatorCanvas = document.querySelector('#section-creator canvas');
+const messageContainer = document.querySelector('#messages');
 
 let CW = 8, CH = 16;
-let cvs, ctx;
 let creatorImage;
 let ansiArt = {};
 
@@ -839,13 +922,12 @@ document.fonts.ready.then(() => {
                 let ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width, 'transparent');
                 ansiArt[path]['ansi_code'] = ansi;
                 ansi = ansi.replaceAll('\\x1b', '');
-                
                 ansiArt[path]['ansi_file'] = ansi;
 
-                cvs = document.createElement('canvas');
-                ctx = cvs.getContext('2d', { willReadFrequently: false });
+                let cvs = document.createElement('canvas');
+                let ctx = cvs.getContext('2d', { willReadFrequently: false });
                 const { grid, rows, cols } = parseAnsi(ansi);
-                render(grid, rows, cols);
+                render(cvs, ctx, grid, rows, cols);
 
                 container.insertAdjacentHTML('beforeend', /*html*/`
                 <div data-name="${path}" tabindex="-1">
@@ -863,7 +945,7 @@ document.fonts.ready.then(() => {
                         <input type="range" list="art-width" value="30" min="15" max="75" oninput="this.parentElement.setAttribute('data-width', this.value);" onchange="changeAnsiWidth(this.parentElement.parentElement.getAttribute('data-name'), this.value)" />
                     </span>
                 </div>`);
-                container.querySelector('& > div:last-of-type').insertAdjacentElement('afterbegin', cvs);
+                container.lastElementChild.insertAdjacentElement('afterbegin', cvs);
             });
         })
     })
