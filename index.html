@@ -38,6 +38,7 @@ body {
     --svg-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.25%200.25%209.5%209.5%22%3E%3Cpath%20d%3D%22M1%202Q1%201%202%201H8Q9%201%209%202V8Q9%209%208%209H2Q1%209%201%208ZM1%208%203%205Q3.5%204.25%204%205L5%206.5Q5.5%207.25%206%206.5L6.5%205.75Q7%205%207.5%205.75L9%208M6%202A1%201%200%20006%204%201%201%200%20006%202%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
     --svg-ansi: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-0.25%20-0.55%208.6%205.8%22%3E%3Cpath%20d%3D%22M.5%204.2V.5H2V4.2M.5%202.5H2M3%204.2V.2L4.5%204.5V.5M6.7.6H5.5V2.5H6.5V4.1H5.4M7.6.5V4.2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
     --svg-code: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%221.5%201%208%208%22%3E%3Cpath%20d%3D%22M4%203%202.5%204.5Q2%205%202.5%205.5L4%207M5%208.5%206%201.5M7%203%208.5%204.5Q9%205%208.5%205.5L7%207%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
+    --svg-pixel: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.5%200.5%206%206%22%3E%3Cpath%20d%3D%22M1%201H2V6H3V1H4V6H5V1H6V2H1V3H6V4H1V5H6V6H1Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
     --svg-brightness-filter: none;
     min-height: 100vh;
     margin: 0;
@@ -59,6 +60,9 @@ body {
         background: repeating-linear-gradient(-45deg, #808080c0, #808080c0 1em, transparent 1em, transparent 2em) !important;
     }
 }
+* {
+    box-sizing: border-box;
+}
 nav {
     display: flex;
     flex-wrap: wrap;
@@ -73,6 +77,7 @@ nav {
     background-color: var(--color-panel-bg);
     z-index: 10;
     transition: transform 0.25s;
+    overflow: hidden;
     &::before {
         content: "";
         position: absolute;
@@ -330,7 +335,14 @@ h1 {
             background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
             color: var(--color-main-fg);
         }
-        & + div label {
+    }
+    & div {
+        width: 100%;
+        text-align: center;
+        &:has(canvas[width][data-opened="image"]) {
+            column-width: clamp(15em, 20vw, 100vw);
+        }
+        & > label {
             position-anchor: --anchor-canvas;
             position: absolute;
             top: anchor(top);
@@ -356,35 +368,65 @@ h1 {
                 }
             }
         }
-    }
-    & div {
-        width: 100%;
-        text-align: center;
-        &:has(canvas[width]:not([data-opened=".ans"])) {
-            column-width: clamp(15em, 20vw, 100vw);
-            width: 75%;
-        }
         & canvas {
             anchor-name: --anchor-canvas;
-            image-rendering: pixelated;
             position: relative;
             width: 50%;
             aspect-ratio: 1;
             min-width: 15em;
+            max-width: 100%;
+            padding: 0.5em;
             border: solid 2px var(--color-main-fg);
             border-radius: 0.5em;
             &[width] {
-                width: 100%;
                 aspect-ratio: initial;
                 min-width: 0;
-                &:not([data-opened=".ans"]) ~ .control-width {
-                    display: inline-block;
-                    text-align: center;
+                background-color: #000;
+            }
+            &[data-opened="ansi"] {
+                width: 100%;
+                height: 100%;
+                max-height: calc(100vh - 15em);
+                object-fit: contain;
+            }
+            &[data-opened="image"] {
+                width: 100%;
+            }
+            &[data-opened="image"] ~ .control-width {
+                display: inline-block;
+                text-align: center;
+            }
+            &:has(+ span input:checked) {
+                image-rendering: pixelated;
+            }
+        }
+        & .creator-settings {
+            position-anchor: --anchor-canvas;
+            position: absolute;
+            bottom: anchor(top);
+            right: anchor(right);
+            & input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+                margin: 0;
+                pointer-events: none;
+                &:checked + label {
+                    outline: solid 2px var(--color-accent);
                 }
+            }
+            & label {
+                display: inline-block;
+                width: 2em;
+                aspect-ratio: 1;
+                border-radius: 1em;
+                background: no-repeat center var(--svg-pixel);
+                cursor: pointer;
             }
         }
         & .control-width {
             display: none;
+            max-width: 100%;
             padding: 0 0.5em;
             border-radius: 0.5em;
             white-space: nowrap;
@@ -436,7 +478,7 @@ h1 {
     </datalist>
     <section id="section-creator">
         <h1>ANSI Art Creator/Viewer</h1>
-        <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg, .ans" />
+        <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg, .ans, .ansi" />
         <div>
             <label
               for="image-input" class="drop-zone noselect"
@@ -446,6 +488,9 @@ h1 {
               ondrop="event.preventDefault(); this.classList.remove('drag-over'); createAnsi(event.dataTransfer?.files?.[0], 30)"
             >Click to choose an image for conversion or drag and drop it here. ANSI files can be viewed.</label>
             <canvas></canvas>
+            <span class="creator-settings">
+                <input type="checkbox" id="check-pixelate" checked><label for="check-pixelate"></label>
+            </span>
             <span data-width="30" class="control-width">
                 <input
                   type="range" list="art-width"
@@ -777,11 +822,11 @@ async function createAnsi(image, width) {
     document.querySelector('.control-width').setAttribute('data-width', parseInt(width));
     document.querySelector('.control-width input').value = parseInt(width);
     let ansi;
-    if (image && image.name.endsWith('.ans')) {
-        creatorCanvas.setAttribute('data-opened', '.ans');
+    if (image && (image.name.endsWith('.ans') || image.name.endsWith('.ansi'))) {
+        creatorCanvas.setAttribute('data-opened', 'ansi');
         ansi = await image.text();
-    } else if (image && image.type == 'image/jpeg') {
-        creatorCanvas.removeAttribute('data-opened');
+    } else if (image && image.type.startsWith('image') || creatorImage) {
+        creatorCanvas.setAttribute('data-opened', 'image');
         if (image) {
             creatorImage = image;
         } else {
@@ -790,7 +835,8 @@ async function createAnsi(image, width) {
         ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width), '#000');
         ansi = ansi.replaceAll('\\x1b', '');
     } else {
-        displayMessage('warning', 'Only images and .ans files are allowed!');
+        displayMessage('warning', 'Only images and .ans/.ansi files are allowed!');
+        console.log(image)
         return;
     }
 
