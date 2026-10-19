@@ -11,6 +11,8 @@ used.
 ```js
 const ansi = await imageToAnsi('./my-image.png', 120);
 const ansiOnBlue = await imageToAnsi('./my-image.png', 120, '#10243d');
+// Opt in to diagonal/triangular legacy glyphs (requires a supporting font).
+const ansiWithSlopes = await imageToAnsi('./my-image.png', 120, undefined, true);
 console.log(ansi);
 ```
 

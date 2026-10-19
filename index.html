@@ -129,23 +129,24 @@ h1 {
     width: 100%;
     column-width: clamp(10em, 22vw, 15em);
     & > div {
-        --color-art-bg: #000;
+        --color-art-bg: transparent;
         --color-art-fg: #fff;
         position: relative;
         padding: 0.5em;
         margin-bottom: 1em;
         border-radius: 1em;
+        border: solid 2px var(--color-art-fg);
         background-color: var(--color-art-bg);
         &::before {
             content: attr(data-name);
             position: absolute;
             width: calc(100% - 0.5em);
             left: 0;
-            bottom: 0.5em;
-            padding: 0.75em 0.25em 0;
+            bottom: 0;
+            padding: 1em 0.25em 0.5em;
             border-radius: 1em;
             text-align: center;
-            background: linear-gradient(transparent, var(--color-art-bg) 40%);
+            background: linear-gradient(transparent, var(--color-main-bg) 40%);
             color: var(--color-art-fg);
         }
         &:hover > span, & span:focus-within {
@@ -841,7 +842,7 @@ async function createAnsi(image, width) {
         } else {
             image = creatorImage;
         }
-        ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width));
+        ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width), undefined, true);
         ansi = ansi.replaceAll('\\x1b', '');
     } else {
         displayMessage('warning', 'Only images and .ans/.ansi files are allowed!');
@@ -856,13 +857,17 @@ async function createAnsi(image, width) {
 }
 
 async function changeAnsi(name, width, bgcolor) {
-    let ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), bgcolor);
+    let ansi = await imageToAnsi(`./ANSI Art/${name}/image.png`, parseInt(width), bgcolor, true);
 
     ansiArt[name]['ansi_code'] = ansi;
     ansi = ansi.replaceAll('\\x1b', '');
     ansiArt[name]['ansi_file'] = ansi;
 
-    let cvs = document.querySelector(`[data-name="${name}"] canvas`);
+    let container = document.querySelector(`[data-name="${name}"]`);
+    if (bgcolor) {
+        container.style.setProperty('--color-art-bg', bgcolor);
+    }
+    let cvs = container.getElementsByTagName('canvas')[0];
     let ctx = cvs.getContext('2d', { willReadFrequently: false });
     const { grid, rows, cols } = parseAnsi(ansi);
     render(cvs, ctx, grid, rows, cols);
@@ -989,7 +994,7 @@ document.fonts.ready.then(() => {
                 ansiArt[path] = {};
                 ansiArt[path]['image_path'] = `./ANSI Art/${path}/image.png`;
                 let initial_width = 30;
-                let ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width);
+                let ansi = await imageToAnsi(`./ANSI Art/${path}/image.png`, initial_width, undefined, true);
                 ansiArt[path]['ansi_code'] = ansi;
                 ansi = ansi.replaceAll('\\x1b', '');
                 ansiArt[path]['ansi_file'] = ansi;

@@ -6,9 +6,11 @@
  * @param {string} imagePath A relative path, URL, or data URL for an image.
  * @param {number} width Number of terminal character columns to generate.
  * @param {string} [backgroundColor] CSS color used behind transparent pixels.
+ * @param {boolean} [enableSlopes=false] Include Symbols for Legacy Computing
+ *   diagonal and triangular block glyphs, which are unsupported by some fonts.
  * @returns {Promise<string>} ANSI escape-code text (24-bit colour).
  */
-async function imageToAnsi(imagePath, width, backgroundColor) {
+async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = false) {
   if (!Number.isInteger(width) || width < 1) {
     throw new TypeError('width must be a positive integer.');
   }
@@ -76,9 +78,41 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
   const horizontal = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
   // Upper fractional blocks complement `horizontal`, including Unicode's
   // Symbols for Legacy Computing glyphs for the 2/8, 3/8, 5/8, 6/8, and 7/8 fills.
-  const upperHorizontal = [' ', '▔', '🮂', '🮃', '🮄', '▀', '🮅', '🮆', '█'];
+  const upperHorizontal = [' ', '▔', '🮂', '🮃', '▀', '🮄', '🮅', '🮆', '█'];
   const vertical = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+  // Right fractional blocks complement `vertical`. The glyphs are ordered by
+  // the width of the filled area, rather than Unicode code-point order.
+  const rightVertical = [' ', '🭵', '🮇', '🮈', '▐', '🮉', '🮊', '🮋', '█'];
   const quadrants = [' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█'];
+  // These Symbols for Legacy Computing glyphs are deliberately opt-in: many
+  // terminal/font combinations do not contain them. Each polygon describes
+  // the foreground region within an 8x8 cell.
+  const slope = (char, corner, a, b) => ({ char, points: [a, b, corner] });
+  const upperLeft = [0, 0], upperRight = [8, 0], lowerLeft = [0, 8], lowerRight = [8, 8];
+  const slopes = [
+    slope('🬼', lowerLeft, [0, 6], [4, 8]), slope('🬽', lowerLeft, [0, 6], [8, 8]), slope('🬾', lowerLeft, [0, 2], [4, 8]), slope('🬿', lowerLeft, [0, 2], [8, 8]), slope('🭀', lowerLeft, [0, 0], [4, 8]),
+    slope('🭇', lowerRight, [4, 8], [8, 6]), slope('🭈', lowerRight, [0, 8], [8, 6]), slope('🭉', lowerRight, [4, 8], [8, 2]), slope('🭊', lowerRight, [0, 8], [8, 2]), slope('🭋', lowerRight, [4, 8], [8, 0]),
+    slope('🭗', upperLeft, [0, 2], [4, 0]), slope('🭘', upperLeft, [0, 2], [8, 0]), slope('🭙', upperLeft, [0, 6], [4, 0]), slope('🭚', upperLeft, [0, 6], [8, 0]), slope('🭛', upperLeft, [0, 8], [4, 0]),
+    slope('🭢', upperRight, [4, 0], [8, 2]), slope('🭣', upperRight, [0, 0], [8, 2]), slope('🭤', upperRight, [4, 0], [8, 6]), slope('🭥', upperRight, [0, 0], [8, 6]), slope('🭦', upperRight, [4, 0], [8, 8]),
+    slope('🭁', lowerRight, [0, 2], [4, 0]), slope('🭂', lowerRight, [0, 2], [8, 0]), slope('🭃', lowerRight, [0, 6], [4, 0]), slope('🭄', lowerRight, [0, 6], [8, 0]), slope('🭅', lowerRight, [0, 8], [4, 0]), slope('🭆', lowerRight, [0, 6], [8, 2]),
+    slope('🭌', lowerLeft, [4, 0], [8, 2]), slope('🭍', lowerLeft, [0, 0], [8, 2]), slope('🭎', lowerLeft, [4, 0], [8, 6]), slope('🭏', lowerLeft, [0, 0], [8, 6]), slope('🭐', lowerLeft, [4, 0], [8, 8]), slope('🭑', lowerLeft, [0, 2], [8, 6]),
+    slope('🭒', upperRight, [0, 6], [4, 8]), slope('🭓', upperRight, [0, 6], [8, 8]), slope('🭔', upperRight, [0, 2], [4, 8]), slope('🭕', upperRight, [0, 2], [8, 8]), slope('🭖', upperRight, [0, 0], [4, 8]), slope('🭜', upperLeft, [0, 6], [8, 2]),
+    slope('🭝', upperLeft, [4, 8], [8, 6]), slope('🭞', upperLeft, [0, 8], [8, 6]), slope('🭟', upperLeft, [4, 8], [8, 2]), slope('🭠', upperLeft, [0, 8], [8, 2]), slope('🭡', upperLeft, [4, 8], [8, 0]), slope('🭧', upperRight, [0, 2], [8, 6]),
+    // { char: '🭨', points: [upperLeft, upperRight, lowerRight, lowerLeft, [4, 4]] }, { char: '🭩', points: [upperLeft, [4, 4], upperRight, lowerRight, lowerLeft] }, { char: '🭪', points: [upperLeft, upperRight, [4, 4], lowerRight, lowerLeft] }, { char: '🭫', points: [upperLeft, upperRight, lowerRight, [4, 4], lowerLeft] },
+    // { char: '🭬', points: [upperLeft, lowerLeft, [4, 4]] }, { char: '🭭', points: [upperLeft, upperRight, [4, 4]] }, { char: '🭮', points: [upperRight, lowerRight, [4, 4]] }, { char: '🭯', points: [lowerLeft, lowerRight, [4, 4]] },
+  ].map(shape => {
+    const mask = [];
+    for (let pixelY = 0; pixelY < 8; pixelY += 1) for (let pixelX = 0; pixelX < 8; pixelX += 1) {
+      const pointX = pixelX + 0.5, pointY = pixelY + 0.5;
+      let inside = false;
+      for (let index = 0, previous = shape.points.length - 1; index < shape.points.length; previous = index, index += 1) {
+        const [x1, y1] = shape.points[index], [x2, y2] = shape.points[previous];
+        if ((y1 > pointY) !== (y2 > pointY) && pointX < (x2 - x1) * (pointY - y1) / (y2 - y1) + x1) inside = !inside;
+      }
+      mask.push(inside);
+    }
+    return { char: shape.char, mask };
+  });
   const escape = '\\x1b[';
   // Pixels below this are rendered as holes. Near-opaque values are common in
   // exported PNGs and should retain normal colour-based glyph fitting.
@@ -88,6 +122,9 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
     '▛': '▗', '▜': '▖', '▙': '▝', '▟': '▘', '▞': '▚',
     '▔': '▇', '🮂': '▆', '🮃': '▅', '▀': '▄', '🮄': '▃', '🮅': '▂', '🮆': '▁',
     '▏': '🮋', '▎': '🮊', '▍': '🮉', '▌': '▐', '▋': '🮈', '▊': '🮇', '▉': '🭵',
+    // Of the optional slopes, only these triangular 1/4 and 3/4 blocks have
+    // exact complementary glyphs in the selected character set.
+    '🭨': '🭬', '🭩': '🭭', '🭪': '🭮', '🭫': '🭯',
   };
   // The table above is written in one direction; make it usable whichever
   // side of a fitted shape happened to contain the transparent pixels.
@@ -118,6 +155,25 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
     count: a.count + b.count, r: a.r + b.r, g: a.g + b.g, b: a.b + b.b,
     rr: a.rr + b.rr, gg: a.gg + b.gg, bb: a.bb + b.bb,
   });
+  const maskedStats = (x, y, mask) => {
+    const foreground = { count: 0, r: 0, g: 0, b: 0, rr: 0, gg: 0, bb: 0 };
+    const background = { count: 0, r: 0, g: 0, b: 0, rr: 0, gg: 0, bb: 0 };
+    let foregroundAlpha = 0, backgroundAlpha = 0;
+    for (let pixelY = 0; pixelY < 8; pixelY += 1) for (let pixelX = 0; pixelX < 8; pixelX += 1) {
+      const offset = ((y + pixelY) * pixelWidth + x + pixelX) * 4;
+      const target = mask[pixelY * 8 + pixelX] ? foreground : background;
+      target.count += 1;
+      target.r += pixels[offset]; target.g += pixels[offset + 1]; target.b += pixels[offset + 2];
+      target.rr += pixels[offset] ** 2; target.gg += pixels[offset + 1] ** 2; target.bb += pixels[offset + 2] ** 2;
+      if (target === foreground) foregroundAlpha += pixels[offset + 3];
+      else backgroundAlpha += pixels[offset + 3];
+    }
+    return {
+      foreground, background,
+      foregroundAlpha: foregroundAlpha / foreground.count,
+      backgroundAlpha: backgroundAlpha / background.count,
+    };
+  };
 
   const bestCell = (column, row) => {
     const x = column * cellSize, y = row * cellSize;
@@ -163,6 +219,18 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
         error: (left ? error(left) : 0) + (right ? error(right) : 0),
       });
 
+      const rightFilled = fill > 0 ? stats(x + 8 - fill, y, x + 8, y + 8) : null;
+      const leftEmpty = fill < 8 ? stats(x, y, x + 8 - fill, y + 8) : null;
+      const rightFg = rightFilled || leftEmpty;
+      const leftBg = leftEmpty || rightFilled;
+      candidates.push({
+        char: rightVertical[fill], fg: color(rightFg), bg: color(leftBg),
+        fgAlpha: rightFilled ? alpha(x + 8 - fill, y, x + 8, y + 8) : alpha(x, y, x + 8 - fill, y + 8),
+        bgAlpha: leftEmpty ? alpha(x, y, x + 8 - fill, y + 8) : alpha(x + 8 - fill, y, x + 8, y + 8),
+        fgPixels: fill * 8, bgPixels: (8 - fill) * 8,
+        error: (rightFilled ? error(rightFilled) : 0) + (leftEmpty ? error(leftEmpty) : 0),
+      });
+
       // The standard block range only provides lower eighths. These upper
       // eighths let a transparent lower region remain a true glyph hole.
       const upper = fill > 0 ? stats(x, y, x + 8, y + fill) : null;
@@ -203,6 +271,21 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
         fgPixels: foregroundParts.length * 16, bgPixels: backgroundParts.length * 16,
         error: (foreground ? error(foreground) : 0) + (background ? error(background) : 0),
       });
+    }
+
+    // With transparent pixels, restrict this to the few slopes with exact
+    // inverse glyphs; the rest cannot preserve holes in the terminal output.
+    if (enableSlopes) {
+      for (const slope of slopes) {
+        if (!background && hasTransparentPixels && !inverse[slope.char]) continue;
+        const fit = maskedStats(x, y, slope.mask);
+        candidates.push({
+          char: slope.char, fg: color(fit.foreground), bg: color(fit.background),
+          fgAlpha: fit.foregroundAlpha, bgAlpha: fit.backgroundAlpha,
+          fgPixels: fit.foreground.count, bgPixels: fit.background.count,
+          error: error(fit.foreground) + error(fit.background),
+        });
+      }
     }
 
     const transparencyError = candidate => candidate.fgPixels * (255 - candidate.fgAlpha) ** 2 + candidate.bgPixels * candidate.bgAlpha ** 2;
