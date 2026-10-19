@@ -74,9 +74,24 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
   }
 
   const horizontal = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+  // Upper fractional blocks complement `horizontal`, including Unicode's
+  // Symbols for Legacy Computing glyphs for the 2/8, 3/8, 5/8, 6/8, and 7/8 fills.
+  const upperHorizontal = [' ', '▔', '🮂', '🮃', '🮄', '▀', '🮅', '🮆', '█'];
   const vertical = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
   const quadrants = [' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█'];
   const escape = '\\x1b[';
+  // Pixels below this are rendered as holes. Near-opaque values are common in
+  // exported PNGs and should retain normal colour-based glyph fitting.
+  const transparentAlpha = 128;
+
+  const inverse = {
+    '▛': '▗', '▜': '▖', '▙': '▝', '▟': '▘', '▞': '▚',
+    '▔': '▇', '🮂': '▆', '🮃': '▅', '▀': '▄', '🮄': '▃', '🮅': '▂', '🮆': '▁',
+    '▏': '🮋', '▎': '🮊', '▍': '🮉', '▌': '▐', '▋': '🮈', '▊': '🮇', '▉': '🭵',
+  };
+  // The table above is written in one direction; make it usable whichever
+  // side of a fitted shape happened to contain the transparent pixels.
+  for (const [shape, opposite] of Object.entries(inverse)) inverse[opposite] = shape;
 
   const stats = (x0, y0, x1, y1) => {
     let r = 0, g = 0, b = 0, rr = 0, gg = 0, bb = 0;
@@ -89,6 +104,14 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
     }
     return { count, r, g, b, rr, gg, bb };
   };
+  const alpha = (x0, y0, x1, y1) => {
+    let total = 0;
+    const count = (x1 - x0) * (y1 - y0);
+    for (let pixelY = y0; pixelY < y1; pixelY += 1) for (let pixelX = x0; pixelX < x1; pixelX += 1) {
+      total += pixels[(pixelY * pixelWidth + pixelX) * 4 + 3];
+    }
+    return total / count;
+  };
   const color = value => [Math.round(value.r / value.count), Math.round(value.g / value.count), Math.round(value.b / value.count)];
   const error = value => value.rr - value.r * value.r / value.count + value.gg - value.g * value.g / value.count + value.bb - value.b * value.b / value.count;
   const join = (a, b) => ({
@@ -99,12 +122,12 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
   const bestCell = (column, row) => {
     const x = column * cellSize, y = row * cellSize;
     let fullyTransparent = true;
-    for (let pixelY = y; pixelY < y + cellSize && fullyTransparent; pixelY += 1) {
+    let hasTransparentPixels = false;
+    for (let pixelY = y; pixelY < y + cellSize; pixelY += 1) {
       for (let pixelX = x; pixelX < x + cellSize; pixelX += 1) {
-        if (pixels[(pixelY * pixelWidth + pixelX) * 4 + 3] !== 0) {
-          fullyTransparent = false;
-          break;
-        }
+        const pixelAlpha = pixels[(pixelY * pixelWidth + pixelX) * 4 + 3];
+        if (pixelAlpha !== 0) fullyTransparent = false;
+        if (pixelAlpha < transparentAlpha) hasTransparentPixels = true;
       }
     }
     // ANSI has no alpha. A reset space leaves the terminal's existing
@@ -112,20 +135,47 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
     if (fullyTransparent) return { transparent: true };
 
     const full = stats(x, y, x + 8, y + 8);
-    const candidates = [{ char: '█', fg: color(full), bg: color(full), error: error(full) }];
+    const fullAlpha = alpha(x, y, x + 8, y + 8);
+    const candidates = [{ char: '█', fg: color(full), bg: color(full), fgAlpha: fullAlpha, bgAlpha: fullAlpha, fgPixels: 64, bgPixels: 0, error: error(full) }];
 
     for (let fill = 0; fill <= 8; fill += 1) {
       const top = fill < 8 ? stats(x, y, x + 8, y + 8 - fill) : null;
       const bottom = fill > 0 ? stats(x, y + 8 - fill, x + 8, y + 8) : null;
       const fg = bottom || top;
       const bg = top || bottom;
-      candidates.push({ char: horizontal[fill], fg: color(fg), bg: color(bg), error: (top ? error(top) : 0) + (bottom ? error(bottom) : 0) });
+      candidates.push({
+        char: horizontal[fill], fg: color(fg), bg: color(bg),
+        fgAlpha: bottom ? alpha(x, y + 8 - fill, x + 8, y + 8) : alpha(x, y, x + 8, y + 8 - fill),
+        bgAlpha: top ? alpha(x, y, x + 8, y + 8 - fill) : alpha(x, y + 8 - fill, x + 8, y + 8),
+        fgPixels: fill * 8, bgPixels: (8 - fill) * 8,
+        error: (top ? error(top) : 0) + (bottom ? error(bottom) : 0),
+      });
 
       const left = fill > 0 ? stats(x, y, x + fill, y + 8) : null;
       const right = fill < 8 ? stats(x + fill, y, x + 8, y + 8) : null;
       const leftFg = left || right;
       const rightBg = right || left;
-      candidates.push({ char: vertical[fill], fg: color(leftFg), bg: color(rightBg), error: (left ? error(left) : 0) + (right ? error(right) : 0) });
+      candidates.push({
+        char: vertical[fill], fg: color(leftFg), bg: color(rightBg),
+        fgAlpha: left ? alpha(x, y, x + fill, y + 8) : alpha(x + fill, y, x + 8, y + 8),
+        bgAlpha: right ? alpha(x + fill, y, x + 8, y + 8) : alpha(x, y, x + fill, y + 8),
+        fgPixels: fill * 8, bgPixels: (8 - fill) * 8,
+        error: (left ? error(left) : 0) + (right ? error(right) : 0),
+      });
+
+      // The standard block range only provides lower eighths. These upper
+      // eighths let a transparent lower region remain a true glyph hole.
+      const upper = fill > 0 ? stats(x, y, x + 8, y + fill) : null;
+      const lower = fill < 8 ? stats(x, y + fill, x + 8, y + 8) : null;
+      const upperFg = upper || lower;
+      const lowerBg = lower || upper;
+      candidates.push({
+        char: upperHorizontal[fill], fg: color(upperFg), bg: color(lowerBg),
+        fgAlpha: upper ? alpha(x, y, x + 8, y + fill) : alpha(x, y + fill, x + 8, y + 8),
+        bgAlpha: lower ? alpha(x, y + fill, x + 8, y + 8) : alpha(x, y, x + 8, y + fill),
+        fgPixels: fill * 8, bgPixels: (8 - fill) * 8,
+        error: (upper ? error(upper) : 0) + (lower ? error(lower) : 0),
+      });
     }
 
     const parts = [
@@ -140,10 +190,38 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
       }
       const fg = foreground || background;
       const bg = background || foreground;
-      candidates.push({ char: quadrants[mask], fg: color(fg), bg: color(bg), error: (foreground ? error(foreground) : 0) + (background ? error(background) : 0) });
+      const foregroundParts = [], backgroundParts = [];
+      for (let part = 0; part < 4; part += 1) {
+        const partX = x + (part % 2) * 4, partY = y + Math.floor(part / 2) * 4;
+        (mask & (1 << part) ? foregroundParts : backgroundParts).push(alpha(partX, partY, partX + 4, partY + 4));
+      }
+      const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
+      candidates.push({
+        char: quadrants[mask], fg: color(fg), bg: color(bg),
+        fgAlpha: foregroundParts.length ? average(foregroundParts) : average(backgroundParts),
+        bgAlpha: backgroundParts.length ? average(backgroundParts) : average(foregroundParts),
+        fgPixels: foregroundParts.length * 16, bgPixels: backgroundParts.length * 16,
+        error: (foreground ? error(foreground) : 0) + (background ? error(background) : 0),
+      });
     }
 
-    return candidates.reduce((best, candidate) => candidate.error < best.error ? candidate : best);
+    const transparencyError = candidate => candidate.fgPixels * (255 - candidate.fgAlpha) ** 2 + candidate.bgPixels * candidate.bgAlpha ** 2;
+    const best = candidates.reduce((best, candidate) => {
+      const candidateError = !background && hasTransparentPixels ? transparencyError(candidate) : candidate.error;
+      const bestError = !background && hasTransparentPixels ? transparencyError(best) : best.error;
+      return candidateError < bestError ? candidate : best;
+    });
+    // A terminal has no alpha channel. For cells containing transparent source
+    // pixels, draw only the more-opaque half of the fitted shape and leave its
+    // complement as the terminal's own background. If the transparent half was
+    // selected as foreground, flip the glyph and use the opposite colour.
+    if (!background && hasTransparentPixels) {
+      if (best.fgAlpha < best.bgAlpha && inverse[best.char]) {
+        return { char: inverse[best.char], fg: best.bg, transparentBackground: true };
+      }
+      return { char: best.char, fg: best.fg, transparentBackground: true };
+    }
+    return best;
   };
 
   let ansi = '';
@@ -151,14 +229,19 @@ async function imageToAnsi(imagePath, width, backgroundColor) {
     for (let column = 0; column < width; column += 1) {
       const cell = bestCell(column, row);
       if (cell.transparent) {
-        ansi += `${escape}0m `;
+        ansi += ' ';
         continue;
       }
-      ansi += `${escape}38;2;${cell.fg[0]};${cell.fg[1]};${cell.fg[2]}m`;
-      ansi += `${escape}48;2;${cell.bg[0]};${cell.bg[1]};${cell.bg[2]}m${cell.char}`;
+      if (cell.transparentBackground) ansi += `${escape}0m`;
+      ansi += `${escape}38;2;${cell.fg[0]};${cell.fg[1]};${cell.fg[2]}m`; // foreground color
+      if (cell.bg) {
+        ansi += `${escape}48;2;${cell.bg[0]};${cell.bg[1]};${cell.bg[2]}m`; // background color
+      }
+      ansi += cell.char // character
     }
     ansi += `${escape}0m\n`;
   }
+  ansi = ansi.replace(/ +/g, `${escape}0m$&`);
   return ansi;
 }
 

@@ -18,5 +18,7 @@ For canvas security, an external image must permit CORS; local project paths
 work when the page is served from the project (rather than opened as `file://`).
 Pass an optional CSS `backgroundColor` as the third argument to composite
 transparent or semi-transparent pixels before conversion. Without it, fully
-transparent 8×8 cells are emitted as reset spaces, so the terminal's background
-stays visible. ANSI terminals do not support partial alpha.
+transparent 8×8 cells are emitted as reset spaces. Partially transparent cells
+fit their alpha mask with a block glyph; when necessary the glyph is inverted so
+the opaque portion is foreground and its holes show the terminal background.
+ANSI terminals do not support partial alpha.
