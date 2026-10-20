@@ -82,7 +82,7 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
   const vertical = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
   // Right fractional blocks complement `vertical`. The glyphs are ordered by
   // the width of the filled area, rather than Unicode code-point order.
-  const rightVertical = [' ', '🭵', '🮇', '🮈', '▐', '🮉', '🮊', '🮋', '█'];
+  const rightVertical = [' ', '▕', '🮇', '🮈', '▐', '🮉', '🮊', '🮋', '█'];
   const quadrants = [' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█'];
   // These Symbols for Legacy Computing glyphs are deliberately opt-in: many
   // terminal/font combinations do not contain them. Each polygon describes
@@ -98,8 +98,8 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
     slope('🭌', lowerLeft, [4, 0], [8, 2]), slope('🭍', lowerLeft, [0, 0], [8, 2]), slope('🭎', lowerLeft, [4, 0], [8, 6]), slope('🭏', lowerLeft, [0, 0], [8, 6]), slope('🭐', lowerLeft, [4, 0], [8, 8]), slope('🭑', lowerLeft, [0, 2], [8, 6]),
     slope('🭒', upperRight, [0, 6], [4, 8]), slope('🭓', upperRight, [0, 6], [8, 8]), slope('🭔', upperRight, [0, 2], [4, 8]), slope('🭕', upperRight, [0, 2], [8, 8]), slope('🭖', upperRight, [0, 0], [4, 8]), slope('🭜', upperLeft, [0, 6], [8, 2]),
     slope('🭝', upperLeft, [4, 8], [8, 6]), slope('🭞', upperLeft, [0, 8], [8, 6]), slope('🭟', upperLeft, [4, 8], [8, 2]), slope('🭠', upperLeft, [0, 8], [8, 2]), slope('🭡', upperLeft, [4, 8], [8, 0]), slope('🭧', upperRight, [0, 2], [8, 6]),
-    // { char: '🭨', points: [upperLeft, upperRight, lowerRight, lowerLeft, [4, 4]] }, { char: '🭩', points: [upperLeft, [4, 4], upperRight, lowerRight, lowerLeft] }, { char: '🭪', points: [upperLeft, upperRight, [4, 4], lowerRight, lowerLeft] }, { char: '🭫', points: [upperLeft, upperRight, lowerRight, [4, 4], lowerLeft] },
-    // { char: '🭬', points: [upperLeft, lowerLeft, [4, 4]] }, { char: '🭭', points: [upperLeft, upperRight, [4, 4]] }, { char: '🭮', points: [upperRight, lowerRight, [4, 4]] }, { char: '🭯', points: [lowerLeft, lowerRight, [4, 4]] },
+    { char: '🭨', points: [upperLeft, upperRight, lowerRight, lowerLeft, [4, 4]] }, { char: '🭩', points: [upperLeft, [4, 4], upperRight, lowerRight, lowerLeft] }, { char: '🭪', points: [upperLeft, upperRight, [4, 4], lowerRight, lowerLeft] }, { char: '🭫', points: [upperLeft, upperRight, lowerRight, [4, 4], lowerLeft] },
+    { char: '🭬', points: [upperLeft, lowerLeft, [4, 4]] }, { char: '🭭', points: [upperLeft, upperRight, [4, 4]] }, { char: '🭮', points: [upperRight, lowerRight, [4, 4]] }, { char: '🭯', points: [lowerLeft, lowerRight, [4, 4]] },
   ].map(shape => {
     const mask = [];
     for (let pixelY = 0; pixelY < 8; pixelY += 1) for (let pixelX = 0; pixelX < 8; pixelX += 1) {
@@ -119,12 +119,14 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
   const transparentAlpha = 128;
 
   const inverse = {
-    '▛': '▗', '▜': '▖', '▙': '▝', '▟': '▘', '▞': '▚',
-    '▔': '▇', '🮂': '▆', '🮃': '▅', '▀': '▄', '🮄': '▃', '🮅': '▂', '🮆': '▁',
-    '▏': '🮋', '▎': '🮊', '▍': '🮉', '▌': '▐', '▋': '🮈', '▊': '🮇', '▉': '🭵',
-    // Of the optional slopes, only these triangular 1/4 and 3/4 blocks have
-    // exact complementary glyphs in the selected character set.
-    '🭨': '🭬', '🭩': '🭭', '🭪': '🭮', '🭫': '🭯',
+    '▛': '▗', '▜': '▖', '▙': '▝', '▟': '▘', '▞': '▚', // 3 quadrants and diagonal
+    '▔': '▇', '🮂': '▆', '🮃': '▅', '▀': '▄', '🮄': '▃', '🮅': '▂', '🮆': '▁', // horizontal
+    '▏': '🮋', '▎': '🮊', '▍': '🮉', '▌': '▐', '▋': '🮈', '▊': '🮇', '▉': '▕', // vertical
+    '🬼': '🭒', '🬽': '🭓', '🬾': '🭔', '🬿': '🭕', '🭀': '🭖', 
+    '🭇': '🭝', '🭈': '🭞', '🭉': '🭟', '🭊': '🭠', '🭋': '🭡', 
+    '🭗': '🭁', '🭘': '🭂', '🭙': '🭃', '🭚': '🭄', '🭛': '🭅', 
+    '🭢': '🭌', '🭣': '🭍', '🭤': '🭎', '🭥': '🭏', '🭦': '🭐', 
+    //'🭨': '🭬', '🭩': '🭭', '🭪': '🭮', '🭫': '🭯',
   };
   // The table above is written in one direction; make it usable whichever
   // side of a fitted shape happened to contain the transparent pixels.

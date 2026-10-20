@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <title>ANSI Art Collection</title>
     <style>
+@font-face {
+    font-family: Adwaita;
+    src: url(Fonts/Adwaita_Mono/adwaita-mono-latin-400-normal.ttf);
+}
 @keyframes slide-up {
     from {
         transform: translateY(calc(100% + 1em));
@@ -77,7 +81,6 @@ nav {
     background-color: var(--color-panel-bg);
     z-index: 10;
     transition: transform 0.25s;
-    overflow: hidden;
     &::before {
         content: "";
         position: absolute;
@@ -191,34 +194,6 @@ h1 {
                     background-image: var(--svg-download);
                 }
             }
-            & > a {
-                height: 100%;
-                aspect-ratio: 1;
-                border-radius: 0.5em;
-                background: no-repeat center/70% var(--svg-copy);
-                background-color: #00000080;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.5s;
-                &:focus-visible {
-                    outline: solid 0.2em var(--color-accent);
-                }
-                &:nth-child(1) {
-                    background-image: var(--svg-image);
-                    background-size: 80%;
-                    transition-delay: 0.3s;
-                }
-                &:nth-child(2) {
-                    background-image: var(--svg-ansi);
-                    background-size: 80%;
-                    transition-delay: 0.15s;
-                }
-                &:nth-child(3) {
-                    background-image: var(--svg-code);
-                    background-size: 80%;
-                    transition-delay: 0s;
-                }
-            }
             &:focus, &:focus-within {
                 z-index: 1;
                 & > a {
@@ -285,6 +260,7 @@ h1 {
     right: 0;
     bottom: 0;
     padding: 1em;
+    z-index: 10;
     span {
         position: relative;
         width: fit-content;
@@ -339,10 +315,11 @@ h1 {
         }
     }
     & div {
-        width: 100%;
+        width: 85%;
         text-align: center;
         &:has(canvas[width][data-opened="image"]) {
             column-width: clamp(15em, 20vw, 100vw);
+            column-gap: 6em;
         }
         & > label {
             position-anchor: --anchor-canvas;
@@ -405,8 +382,9 @@ h1 {
         & .creator-settings {
             position-anchor: --anchor-canvas;
             position: absolute;
-            bottom: anchor(top);
-            right: anchor(right);
+            top: anchor(top);
+            right: calc(anchor(left) + 0.2em);
+            z-index: 1;
             & input {
                 opacity: 0;
                 width: 0;
@@ -424,6 +402,32 @@ h1 {
                 border-radius: 1em;
                 background: no-repeat center var(--svg-pixel);
                 cursor: pointer;
+            }
+        }
+        & .download-copy {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.2em;
+            position-anchor: --anchor-canvas;
+            position: absolute;
+            top: anchor(top);
+            left: calc(anchor(right) + 0.2em);
+            width: 8em;
+            white-space: nowrap;
+            & a {
+                display: inline-block;
+                width: 2.5em;
+                opacity: 1;
+                pointer-events: all;
+                & + span {
+                    margin-top: 0.5em;
+                }
+            }
+            & h2 {
+                margin-top: 0;
+            }
+            & span {
+                width: 100%;
             }
         }
         & .control-width {
@@ -455,6 +459,34 @@ h1 {
 .container {
     display: flex;
 }
+a.download {
+    height: 100%;
+    aspect-ratio: 1;
+    border-radius: 0.5em;
+    background: no-repeat center/70% var(--svg-copy);
+    background-color: #00000080;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s;
+    &:focus-visible {
+        outline: solid 0.2em var(--color-accent);
+    }
+    &.image {
+        background-image: var(--svg-image);
+        background-size: 80%;
+        transition-delay: 0.3s;
+    }
+    &.ansi {
+        background-image: var(--svg-ansi);
+        background-size: 80%;
+        transition-delay: 0.15s;
+    }
+    &.code {
+        background-image: var(--svg-code);
+        background-size: 80%;
+        transition-delay: 0s;
+    }
+}
 .noselect {
     -webkit-user-select: none;
     user-select: none;
@@ -481,17 +513,27 @@ h1 {
     <section id="section-creator">
         <h1>ANSI Art Creator/Viewer</h1>
         <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg, .ans, .ansi" />
-        <div>
+        <div data-name="ansi-creator">
             <label
               for="image-input" class="drop-zone noselect"
               ondragenter="event.preventDefault(); this.classList.add('drag-over')"
               ondragover="event.preventDefault(); this.classList.add('drag-over')"
               ondragleave="this.classList.remove('drag-over')"
-              ondrop="event.preventDefault(); this.classList.remove('drag-over'); createAnsi(event.dataTransfer?.files?.[0], 30)"
+              ondrop="event.preventDefault(); this.classList.remove('drag-over'); createAnsi(event.dataTransfer?.files?.[0] || event.dataTransfer.getData('URL'), 30)"
             >Click to choose an image for conversion or drag and drop it here. ANSI files can be viewed.</label>
             <canvas></canvas>
             <span class="creator-settings">
                 <input type="checkbox" id="check-pixelate" checked><label for="check-pixelate"></label>
+            </span>
+            <span class="download-copy">
+                <span>Copy as</span>
+                <a class="download image" href="javascript:copyAs('image', 'ansi-creator')"></a>
+                <a class="download ansi" href="javascript:copyAs('ansi', 'ansi-creator')"></a>
+                <a class="download code" href="javascript:copyAs('code', 'ansi-creator')"></a>
+                <span>Download as</span>
+                <a class="download image" href="javascript:downloadAs('image', 'ansi-creator')"></a>
+                <a class="download ansi" href="javascript:downloadAs('ansi', 'ansi-creator')"></a>
+                <a class="download code" href="javascript:downloadAs('code', 'ansi-creator')"></a>
             </span>
             <span data-width="30" class="control-width">
                 <input
@@ -761,7 +803,7 @@ function render(cvs, ctx, grid, rows, cols) {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#00000000';
     ctx.fillRect(0, 0, W, H);
-    ctx.font = CH + 'px "Fira Code","Courier New",monospace';
+    ctx.font = CH + 'px "Adwaita","Fira Code","Courier New",monospace';
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
 
@@ -828,27 +870,45 @@ function drawBlock(ctx, x, y, type, fg) {
 }
 
 
-async function createAnsi(image, width) {
+async function createAnsi(object, width) {
     document.querySelector('.control-width').setAttribute('data-width', parseInt(width));
     document.querySelector('.control-width input').value = parseInt(width);
     let ansi;
-    if (image && (image.name.toLowerCase().endsWith('.ans') || image.name.toLowerCase().endsWith('.ansi'))) {
+    if (object && object.name && (object.name.toLowerCase().endsWith('.ans') || 
+                                  object.name.toLowerCase().endsWith('.ansi'))) { // ANSI file
+        ansi = await object.text();
         creatorCanvas.setAttribute('data-opened', 'ansi');
-        ansi = await image.text();
-    } else if (image && image.type.startsWith('image') || creatorImage) {
-        creatorCanvas.setAttribute('data-opened', 'image');
-        if (image) {
-            creatorImage = image;
-        } else {
-            image = creatorImage;
-        }
-        ansi = await imageToAnsi(URL.createObjectURL(image), parseInt(width), undefined, true);
-        ansi = ansi.replaceAll('\\x1b', '');
     } else {
-        displayMessage('warning', 'Only images and .ans/.ansi files are allowed!');
-        console.log(image)
-        return;
+        let image = object ?? creatorImage;
+
+        if (typeof image === 'string') { // URL dropped from a webpage
+            try {
+                const response = await fetch(image);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                image = await response.blob();
+            } catch (error) {
+                return displayMessage('warning', 'The image could not be loaded. Please try downloading it first.');
+            }
+        }
+        if (!(image instanceof Blob) || (image.type && !image.type.startsWith('image/'))) {
+            return displayMessage('warning', 'Only images and .ans/.ansi files are allowed!');
+        }
+
+        // Always retain a Blob, never the dropped URL, so width changes can re-render it.
+        creatorImage = image;
+        const imageUrl = URL.createObjectURL(image);
+        try {
+            ansi = await imageToAnsi(imageUrl, parseInt(width), undefined, true);
+        } finally {
+            URL.revokeObjectURL(imageUrl);
+        }
+        creatorCanvas.setAttribute('data-opened', 'image');
     }
+
+    ansiArt['ansi-creator'] = {}
+    ansiArt['ansi-creator']['ansi_code'] = ansi;
+    ansi = ansi.replaceAll('\\x1b', '');
+    ansiArt['ansi-creator']['ansi_file'] = ansi;
 
     let cvs = creatorCanvas;
     let ctx = cvs.getContext('2d', { willReadFrequently: false });
@@ -1007,14 +1067,14 @@ document.fonts.ready.then(() => {
                 container.insertAdjacentHTML('beforeend', /*html*/`
                 <div data-name="${path}" tabindex="-1">
                     <div tabindex="-1">
-                        <a href="javascript:copyAs('image', '${path}')"></a>
-                        <a href="javascript:copyAs('ansi', '${path}')"></a>
-                        <a href="javascript:copyAs('code', '${path}')"></a>
+                        <a class="download image" href="javascript:copyAs('image', '${path}')"></a>
+                        <a class="download ansi" href="javascript:copyAs('ansi', '${path}')"></a>
+                        <a class="download code" href="javascript:copyAs('code', '${path}')"></a>
                     </div>
                     <div tabindex="-1">
-                        <a href="javascript:downloadAs('image', '${path}')"></a>
-                        <a href="javascript:downloadAs('ansi', '${path}')"></a>
-                        <a href="javascript:downloadAs('code', '${path}')"></a>
+                        <a class="download image" href="javascript:downloadAs('image', '${path}')"></a>
+                        <a class="download ansi" href="javascript:downloadAs('ansi', '${path}')"></a>
+                        <a class="download code" href="javascript:downloadAs('code', '${path}')"></a>
                     </div>
                     <span data-width="${initial_width}">
                         <input type="range" list="art-width" value="30" min="15" max="75" 
