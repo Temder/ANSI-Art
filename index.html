@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,12 +44,15 @@ body {
     --svg-code: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%221.5%201%208%208%22%3E%3Cpath%20d%3D%22M4%203%202.5%204.5Q2%205%202.5%205.5L4%207M5%208.5%206%201.5M7%203%208.5%204.5Q9%205%208.5%205.5L7%207%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
     --svg-pixel: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.5%200.5%206%206%22%3E%3Cpath%20d%3D%22M1%201H2V6H3V1H4V6H5V1H6V2H1V3H6V4H1V5H6V6H1Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
     --svg-brightness-filter: none;
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
     margin: 0;
     color-scheme: light dark;
     color: var(--color-main-fg);
     background-color: var(--color-main-bg);
     font-family: sans-serif;
+    hyphens: auto;
     @media (prefers-color-scheme: light) {
         --svg-brightness-filter: brightness(0);
     }
@@ -72,19 +75,21 @@ nav {
     flex-wrap: wrap;
     position: sticky;
     top: 0.5em;
-    margin: 0 auto;
     padding: 0.75em;
+    margin: 0 auto;
     width: fit-content;
+    max-width: calc(100% - 1em);
     border: solid 2px var(--color-main-fg);
     border-radius: 1em;
     justify-content: center;
     background-color: var(--color-panel-bg);
+    text-align: center;
     z-index: 10;
     transition: transform 0.25s;
     &::before {
         content: "";
         position: absolute;
-        inset: -1em;
+        inset: -1em -0.5em;
         z-index: -1;
     }
     &:hover {
@@ -96,6 +101,7 @@ nav {
     }
     & input {
         width: 0;
+        height: 0;
         margin: 0;
         opacity: 0;
         pointer-events: none;
@@ -108,11 +114,7 @@ nav {
         padding: 0.5em;
         border-radius: 0.5em;
         align-content: center;
-        white-space: nowrap;
         cursor: pointer;
-        &:not(:last-child) {
-            margin-right: 0.75em;
-        }
     }
 }
 section {
@@ -120,9 +122,10 @@ section {
     flex-direction: column;
     align-items: center;
     gap: 1em;
+    flex-grow: 1;
     padding: 0.5em;
     margin: 0 auto;
-    width: 75vw;
+    width: clamp(75vw, 100vh, 100vw);
 }
 h1 {
     width: 100%;
@@ -301,6 +304,7 @@ h1 {
     }
 }
 #section-creator {
+    /* height: clamp(25em, calc(100vh - 4em), 100vh); */
     & input[type="file"] {
         opacity: 0;
         width: 0;
@@ -314,12 +318,27 @@ h1 {
             color: var(--color-main-fg);
         }
     }
-    & div {
-        width: 85%;
-        text-align: center;
-        &:has(canvas[width][data-opened="image"]) {
-            column-width: clamp(15em, 20vw, 100vw);
-            column-gap: 6em;
+    & > div {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+        gap: 2em;
+        flex-grow: 1;
+        width: 100%;
+        /* height: 100%; */
+        &:has(canvas[width]) {
+            &:has([data-opened="image"]) {
+                row-gap: 4em;
+                & .control-width {
+                    display: inline-block;
+                }
+            }
+            &:has(#check-pixelate:checked) canvas {
+                image-rendering: pixelated;
+            }
+            & .download-copy {
+                display: flex;
+            }
         }
         & > label {
             position-anchor: --anchor-canvas;
@@ -335,55 +354,62 @@ h1 {
             cursor: pointer;
             z-index: 1;
             transition: background-color 0.25s, color 0.25s;
+            overflow: scroll;
             &.drag-over {
                 outline: solid 0.2em var(--color-accent);
                 outline-offset: -1px;
             }
-            &:has(+ canvas[width]) {
+            &:has(+ #canvas-container canvas[width]) {
                 color: transparent;
                 &:hover {
                     background-color: color(from var(--color-main-bg) srgb r g b / 0.75);
                     color: var(--color-main-fg);
+                    z-index: 1;
                 }
+            }
+        }
+        & #canvas-container:has([width]) {
+            position: relative;
+            flex-grow: 0.2;
+            margin-right: calc(2em + 2px);
+            text-align: center;
+            &::before {
+                content: "Opened: " attr(data-opened);
+                position-anchor: --anchor-canvas;
+                position: absolute;
+                left: anchor(left);
+                right: anchor(right);
+                bottom: anchor(top);
+                padding: 0.5em;
+                border-radius: 1em;
+                text-align: start;
+                color: var(--color-art-fg);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                z-index: 1;
             }
         }
         & canvas {
             anchor-name: --anchor-canvas;
             position: relative;
-            width: 50%;
+            width: clamp(10vw, 50vh, 100%);
+            height: min-content;
             aspect-ratio: 1;
-            min-width: 15em;
-            max-width: 100%;
+            min-width: 5em;
             padding: 0.5em;
-            border: solid 2px var(--color-main-fg);
+            margin: 0 auto;
+            outline: solid 2px var(--color-main-fg);
             border-radius: 0.5em;
             &[width] {
                 aspect-ratio: initial;
-                min-width: 0;
-                /*background-color: #000;*/
-            }
-            &[data-opened="ansi"] {
-                width: 100%;
-                height: 100%;
-                max-height: calc(100vh - 15em);
-                object-fit: contain;
-            }
-            &[data-opened="image"] {
-                width: 100%;
-            }
-            &[data-opened="image"] ~ .control-width {
-                display: inline-block;
-                text-align: center;
-            }
-            &:has(+ span input:checked) {
-                image-rendering: pixelated;
             }
         }
         & .creator-settings {
             position-anchor: --anchor-canvas;
             position: absolute;
             top: anchor(top);
-            right: calc(anchor(left) + 0.2em);
+            left: calc(anchor(right) + 0.2em);
             z-index: 1;
             & input {
                 opacity: 0;
@@ -399,24 +425,19 @@ h1 {
                 display: inline-block;
                 width: 2em;
                 aspect-ratio: 1;
-                border-radius: 1em;
+                border-radius: 0.5em;
                 background: no-repeat center var(--svg-pixel);
                 cursor: pointer;
             }
         }
         & .download-copy {
-            display: flex;
-            flex-wrap: wrap;
+            display: none;
+            flex-direction: column;
             gap: 0.2em;
-            position-anchor: --anchor-canvas;
-            position: absolute;
-            top: anchor(top);
-            left: calc(anchor(right) + 0.2em);
-            width: 8em;
-            white-space: nowrap;
             & a {
                 display: inline-block;
                 width: 2.5em;
+                height: 2.5em;
                 opacity: 1;
                 pointer-events: all;
                 & + span {
@@ -427,15 +448,21 @@ h1 {
                 margin-top: 0;
             }
             & span {
-                width: 100%;
+                text-align: center;
             }
         }
         & .control-width {
+            position-anchor: --anchor-canvas;
+            position: absolute;
+            top: calc(anchor(bottom) + 0.2em);
+            left: anchor(left);
+            right: anchor(right);
             display: none;
             max-width: 100%;
             padding: 0 0.5em;
             border-radius: 0.5em;
             white-space: nowrap;
+            text-align: center;
             &::before {
                 content: attr(data-width);
             }
@@ -455,6 +482,9 @@ h1 {
             }
         }
     }
+}
+#section-collection {
+    padding-bottom: 6em;
 }
 .container {
     display: flex;
@@ -511,7 +541,7 @@ a.download {
         <option value="75" label="75"></option>
     </datalist>
     <section id="section-creator">
-        <h1>ANSI Art Creator/Viewer</h1>
+        <h1>ANSI art creator/viewer</h1>
         <input type="file" id="image-input" onchange="createAnsi(this.files[0], 30)" accept="image/png, image/jpeg, .ans, .ansi" />
         <div data-name="ansi-creator">
             <label
@@ -521,19 +551,11 @@ a.download {
               ondragleave="this.classList.remove('drag-over')"
               ondrop="event.preventDefault(); this.classList.remove('drag-over'); createAnsi(event.dataTransfer?.files?.[0] || event.dataTransfer.getData('URL'), 30)"
             >Click to choose an image for conversion or drag and drop it here. ANSI files can be viewed.</label>
-            <canvas></canvas>
+            <div id="canvas-container">
+                <canvas></canvas>
+            </div>
             <span class="creator-settings">
                 <input type="checkbox" id="check-pixelate" checked><label for="check-pixelate"></label>
-            </span>
-            <span class="download-copy">
-                <span>Copy as</span>
-                <a class="download image" href="javascript:copyAs('image', 'ansi-creator')"></a>
-                <a class="download ansi" href="javascript:copyAs('ansi', 'ansi-creator')"></a>
-                <a class="download code" href="javascript:copyAs('code', 'ansi-creator')"></a>
-                <span>Download as</span>
-                <a class="download image" href="javascript:downloadAs('image', 'ansi-creator')"></a>
-                <a class="download ansi" href="javascript:downloadAs('ansi', 'ansi-creator')"></a>
-                <a class="download code" href="javascript:downloadAs('code', 'ansi-creator')"></a>
             </span>
             <span data-width="30" class="control-width">
                 <input
@@ -542,15 +564,29 @@ a.download {
                   oninput="this.parentElement.setAttribute('data-width', this.value);"
                   onchange="createAnsi(null, this.value)" />
             </span>
+            <span class="download-copy">
+                <span>Copy as</span>
+                <span>
+                    <a class="download image" href="javascript:copyAs('image', 'ansi-creator')"></a>
+                    <a class="download ansi" href="javascript:copyAs('ansi', 'ansi-creator')"></a>
+                    <a class="download code" href="javascript:copyAs('code', 'ansi-creator')"></a>
+                </span>
+                <span>Download as</span>
+                <span>
+                    <a class="download image" href="javascript:downloadAs('image', 'ansi-creator')"></a>
+                    <a class="download ansi" href="javascript:downloadAs('ansi', 'ansi-creator')"></a>
+                    <a class="download code" href="javascript:downloadAs('code', 'ansi-creator')"></a>
+                </span>
+            </span>
         </div>
     </section>
     <section id="section-collection">
-        <h1>ANSI Art Collection</h1>
+        <h1>ANSI art collection</h1>
         <div id="art-container"></div>
     </section>
     <script src="./image-to-ansi.js"></script>
     <script>
-function renderAnsi(ansiString) {
+function renderAnsi(ansiString) { // old
     // Performance optimization: Build HTML in an array rather than string concatenation
     const htmlParts = [];
     let currentFg = '';
@@ -801,7 +837,7 @@ function render(cvs, ctx, grid, rows, cols) {
     const W = cols * CW, H = rows * CH;
     cvs.width = W; cvs.height = H;
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#00000000';
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
     ctx.font = CH + 'px "Adwaita","Fira Code","Courier New",monospace';
     ctx.textBaseline = 'top';
@@ -904,6 +940,7 @@ async function createAnsi(object, width) {
         }
         creatorCanvas.setAttribute('data-opened', 'image');
     }
+    document.getElementById('canvas-container').setAttribute('data-opened', object.name || object);
 
     ansiArt['ansi-creator'] = {}
     ansiArt['ansi-creator']['ansi_code'] = ansi;

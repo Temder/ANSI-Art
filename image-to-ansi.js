@@ -116,7 +116,7 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
   const escape = '\\x1b[';
   // Pixels below this are rendered as holes. Near-opaque values are common in
   // exported PNGs and should retain normal colour-based glyph fitting.
-  const transparentAlpha = 128;
+  const transparentAlpha = 10;
 
   const inverse = {
     '▛': '▗', '▜': '▖', '▙': '▝', '▟': '▘', '▞': '▚', // 3 quadrants and diagonal
