@@ -13,6 +13,8 @@ const ansi = await imageToAnsi('./my-image.png', 120);
 const ansiOnBlue = await imageToAnsi('./my-image.png', 120, '#10243d');
 // Opt in to diagonal/triangular legacy glyphs (requires a supporting font).
 const ansiWithSlopes = await imageToAnsi('./my-image.png', 120, undefined, true);
+// Use top and bottom half blocks for a pixel-art result.
+const pixelArt = await imageToAnsi('./my-image.png', 120, undefined, false, true);
 console.log(ansi);
 ```
 

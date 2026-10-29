@@ -42,7 +42,9 @@ body {
     --svg-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.25%200.25%209.5%209.5%22%3E%3Cpath%20d%3D%22M1%202Q1%201%202%201H8Q9%201%209%202V8Q9%209%208%209H2Q1%209%201%208ZM1%208%203%205Q3.5%204.25%204%205L5%206.5Q5.5%207.25%206%206.5L6.5%205.75Q7%205%207.5%205.75L9%208M6%202A1%201%200%20006%204%201%201%200%20006%202%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E');
     --svg-ansi: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-0.25%20-0.55%208.6%205.8%22%3E%3Cpath%20d%3D%22M.5%204.2V.5H2V4.2M.5%202.5H2M3%204.2V.2L4.5%204.5V.5M6.7.6H5.5V2.5H6.5V4.1H5.4M7.6.5V4.2%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
     --svg-code: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%221.5%201%208%208%22%3E%3Cpath%20d%3D%22M4%203%202.5%204.5Q2%205%202.5%205.5L4%207M5%208.5%206%201.5M7%203%208.5%204.5Q9%205%208.5%205.5L7%207%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%220.75%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E');
+    --svg-normal: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.5%200.5%206%206%22%3E%3Cpath%20d%3D%22M1%201H2V6H3V1H3.5V3H4V1H4.25V3H4V5.25H5V1H6V2.5H5V3H4V2H3V2.5H2V2H1.5V3H4.5V4H5V3.75H6V5H4.5V4H4V5H3.5V4H1.5V3H1V5H2V5.25H3V5H3.5V6H5V5.75H6V5H5V6H1Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
     --svg-pixel: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.5%200.5%206%206%22%3E%3Cpath%20d%3D%22M1%201H2V6H3V1H4V6H5V1H6V2H1V3H6V4H1V5H6V6H1Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
+    --svg-slopes: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220.5%200.5%206%206%22%3E%3Cpath%20d%3D%22M1%201H2V6H3V1H4V6H5V1H6V2H1V3H6V4H1V5H6V6H1Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E');
     --svg-brightness-filter: none;
     display: flex;
     flex-direction: column;
@@ -336,7 +338,7 @@ h1 {
             &:has(#check-pixelate:checked) canvas {
                 image-rendering: pixelated;
             }
-            & .download-copy {
+            & .download-copy, & .creator-settings {
                 display: flex;
             }
         }
@@ -370,7 +372,7 @@ h1 {
         }
         & #canvas-container:has([width]) {
             position: relative;
-            flex-grow: 0.2;
+            flex-grow: 0.4;
             margin-right: calc(2em + 2px);
             text-align: center;
             &::before {
@@ -406,10 +408,12 @@ h1 {
             }
         }
         & .creator-settings {
+            display: none;
+            flex-direction: column;
             position-anchor: --anchor-canvas;
             position: absolute;
             top: anchor(top);
-            left: calc(anchor(right) + 0.2em);
+            left: calc(anchor(right) + 0.5em);
             z-index: 1;
             & input {
                 opacity: 0;
@@ -426,8 +430,16 @@ h1 {
                 width: 2em;
                 aspect-ratio: 1;
                 border-radius: 0.5em;
-                background: no-repeat center var(--svg-pixel);
                 cursor: pointer;
+                &[for="normal"] {
+                    background: no-repeat center var(--svg-normal);
+                }
+                &[for="pixel"] {
+                    background: no-repeat center var(--svg-pixel);
+                }
+                &[for="slopes"] {
+                    background: no-repeat center var(--svg-slopes);
+                }
             }
         }
         & .download-copy {
@@ -555,7 +567,15 @@ a.download {
                 <canvas></canvas>
             </div>
             <span class="creator-settings">
-                <input type="checkbox" id="check-pixelate" checked><label for="check-pixelate"></label>
+                <input type="radio" id="normal" name="ansi-settings"
+                       onchange="createAnsi(null, this.parentElement.parentElement.querySelector('.control-width input').value)">
+                <label for="normal"></label>
+                <input type="radio" id="pixel" name="ansi-settings"
+                       onchange="createAnsi(null, this.parentElement.parentElement.querySelector('.control-width input').value)">
+                <label for="pixel"></label>
+                <input type="radio" id="slopes" name="ansi-settings"
+                       onchange="createAnsi(null, this.parentElement.parentElement.querySelector('.control-width input').value)">
+                <label for="slopes"></label>
             </span>
             <span data-width="30" class="control-width">
                 <input
@@ -614,7 +634,9 @@ async function createAnsi(object, width) {
         creatorImage = image;
         const imageUrl = URL.createObjectURL(image);
         try {
-            ansi = await imageToAnsi(imageUrl, parseInt(width), undefined, true);
+            const pixel = document.getElementById('pixel').checked;
+            const slopes = document.getElementById('slopes').checked;
+            ansi = await imageToAnsi(imageUrl, parseInt(width), undefined, slopes, pixel);
         } finally {
             URL.revokeObjectURL(imageUrl);
         }

@@ -8,9 +8,11 @@
  * @param {string} [backgroundColor] CSS color used behind transparent pixels.
  * @param {boolean} [enableSlopes=false] Include Symbols for Legacy Computing
  *   diagonal and triangular block glyphs, which are unsupported by some fonts.
+ * @param {boolean} [pixelArt=false] Sample top and bottom source pixels per
+ *   terminal cell to create a deliberately pixelated result.
  * @returns {Promise<string>} ANSI escape-code text (24-bit colour).
  */
-async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = false) {
+async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = false, pixelArt = false) {
   if (!Number.isInteger(width) || width < 1) {
     throw new TypeError('width must be a positive integer.');
   }
@@ -53,12 +55,16 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
   }
 
   // ansi-art.com resizes by nearest-neighbour sampling, before evaluating cells.
+  // Pixel-art mode samples once per half-cell and repeats that sample over its
+  // 8x4 area, preserving two vertical pixels with half-block glyphs.
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4);
   const scaleX = source.width / pixelWidth;
   const scaleY = source.height / pixelHeight;
   for (let y = 0; y < pixelHeight; y += 1) {
     for (let x = 0; x < pixelWidth; x += 1) {
-      const from = (Math.floor(y * scaleY) * source.width + Math.floor(x * scaleX)) * 4;
+      const sampleX = pixelArt ? Math.floor(x / cellSize) * cellSize : x;
+      const sampleY = pixelArt ? Math.floor(y / (cellSize / 2)) * (cellSize / 2) : y;
+      const from = (Math.floor(sampleY * scaleY) * source.width + Math.floor(sampleX * scaleX)) * 4;
       const to = (y * pixelWidth + x) * 4;
       const alpha = source.data[from + 3] / 255;
       if (background) {
@@ -191,6 +197,26 @@ async function imageToAnsi(imagePath, width, backgroundColor, enableSlopes = fal
     // ANSI has no alpha. A reset space leaves the terminal's existing
     // background visible, which preserves completely transparent areas.
     if (fullyTransparent) return { transparent: true };
+
+    if (pixelArt) {
+      const top = stats(x, y, x + 8, y + 4);
+      const bottom = stats(x, y + 4, x + 8, y + 8);
+      const topAlpha = alpha(x, y, x + 8, y + 4);
+      const bottomAlpha = alpha(x, y + 4, x + 8, y + 8);
+
+      // When no background was supplied, use the appropriate half block to
+      // retain a transparent half as the terminal's own background.
+      if (!background && topAlpha < transparentAlpha && bottomAlpha < transparentAlpha) {
+        return { transparent: true };
+      }
+      if (!background && topAlpha < transparentAlpha) {
+        return { char: '▄', fg: color(bottom), transparentBackground: true };
+      }
+      if (!background && bottomAlpha < transparentAlpha) {
+        return { char: '▀', fg: color(top), transparentBackground: true };
+      }
+      return { char: '▀', fg: color(top), bg: color(bottom) };
+    }
 
     const full = stats(x, y, x + 8, y + 8);
     const fullAlpha = alpha(x, y, x + 8, y + 8);
